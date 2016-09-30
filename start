@@ -25,6 +25,13 @@ DB_RECORDS_TABLE="CREATE TABLE IF NOT EXISTS records (\
 
 ##### Functions
 
+function usage {
+	echo "usage.."
+	echo "./start [-c | -s] [-m communication type]"
+	echo "	-c or -s: client-side or server-side, only one option may be used"
+	echo "	-m: communication type(type in 433, 915, blue or bluetooth)"
+}
+
 function start_915 {
 	return
 }
@@ -62,4 +69,63 @@ function init_db {
 
 ##### Main
 
-echo "Starting script.."
+if [ $# -ne 3 ]; then
+	usage
+	exit 1
+fi
+
+if [ $2 != "-m" ]; then
+	usage
+	exit 1
+fi
+
+case $1 in
+	"-c" )
+		echo "Client-side testing.."
+		case $3 in
+			"433" )
+				echo "433MHz sik radio selected!"
+				start_433
+				;;
+			"915" )
+				echo "915MHz sik radio selected!"
+				;;
+			"wifi" )
+				echo "wifi selected!"
+				;;
+			"bluetooth" )
+				echo "bluetooth selected!"
+				;;
+			* )
+				usage
+				exit 1
+				;;
+		esac
+		;;
+	"-s" )
+		echo "Server-side testing.."
+		case $3 in
+			"433" )
+				echo "433MHz sik radio selected!"
+				;;
+			"915" )
+				echo "915MHz sik radio selected!"
+				;;
+			"wifi" )
+				echo "wifi selected!"
+				;;
+			"bluetooth" )
+				echo "bluetooth selected!"
+				;;
+			* )
+				usage
+				exit 1
+				;;
+		esac
+		;;
+	* )
+		usage
+		exit 1
+		;;
+esac
+
