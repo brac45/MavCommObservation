@@ -13,13 +13,13 @@ CFLAGS := -g -Wall
 SRCDIR := src
 BUILDDIR := build
 BIN := bin
-TARGET := $(BIN)/serial-client.out
+TARGET := $(BIN)/serial-server.out
 
 # File extensions and some more options
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../mavlink/common
+LIB := -I ../mavlink-headers/common
 
 # =========== Build procedure ========
 $(TARGET): $(OBJECTS)

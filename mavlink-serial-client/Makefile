@@ -22,7 +22,7 @@ SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 TESTSRCS := $(shell find $(TEST) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../mavlink/common
+LIB := -I ../mavlink-headers/common
 
 # =========== Build procedure ========
 $(TARGET): $(OBJECTS)

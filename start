@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Interface for the MAVlink messaging experiment
+
+##### Constants
+DB_FILE="database.db"
+TEMP_FILE="/tmp/sqltemp"
+# SQL QUERIES
+DB_SESSION_TABLE="CREATE TABLE IF NOT EXISTS session (\
+	id INTEGER NOT NULL, \
+	date_time TEXT NOT NULL, \
+	description TEXT NOT NULL, \
+	PRIMARY KEY (id));"
+DB_RECORDS_TABLE="CREATE TABLE IF NOT EXISTS records (\
+	session_id INTEGER NOT NULL, \
+	frame_seq INTEGER NOT NULL, \
+	frame_contents BLOB NOT NULL, \
+	time_sent TEXT NOT NULL, \
+	msg_size INTEGER NOT NULL, \
+	rtt REAL NOT NULL, \
+	uplink_time REAL NOT NULL, \
+	downlink_time REAL NOT NULL, \
+	PRIMARY KEY (session_id, frame_seq), \
+	FOREIGN KEY (session_id) REFERENCES session(id));"
+
+##### Functions
+
+function start_915 {
+	return
+}
+
+function start_433 {
+	return
+}
+
+function start_wifi {
+	return
+}
+
+function start_bluetooth {
+	return
+}
+
+function init_db {
+	if [ ! -f $DB_FILE ]; then
+		echo "database.db not found!"
+		echo "Creating new database file with predefined schema.."
+		echo $DB_SESSION_TABLE > $TEMP_FILE
+		echo $DB_RECORDS_TABLE >> $TEMP_FILE
+		cat $TEMP_FILE
+		sqlite3 $DB_FILE < $TEMP_FILE
+		rm -f $TEMP_FILE
+	else
+		echo "Initialising DB.."
+		echo $DB_SESSION_TABLE > $TEMP_FILE
+		echo $DB_RECORDS_TABLE >> $TEMP_FILE
+		cat $TEMP_FILE
+		sqlite3 $DB_FILE < $TEMP_FILE
+		rm -f $TEMP_FILE
+	fi
+}
+
+##### Main
+
+echo "Starting script.."
