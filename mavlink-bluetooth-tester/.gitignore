@@ -1,8 +1,0 @@
-# Ignore unnecessary files
-build/*
-bin/*
-
-# Except theses
-!build/.gitnote
-!lib/.gitnote
-!bin/.gitnote
