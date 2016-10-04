@@ -52,7 +52,8 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
  * argv[3] : observation session ID */
 int main(int argc, char **argv) {
 	if (argc != 4) {
-		fprintf(stderr, "Fatal error! not enough args\n");
+		fprintf(stderr, "usage..\n");
+		fprintf(stderr, "		./$(PROGRAM) [device_path] [db path] [session id]\n");
 		exit(1);
 	}
 
@@ -160,7 +161,7 @@ void sendMessages() {
 		memset((char*)&mavmsg, 0, sizeof(mavmsg));
 		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);		// mavmsg buffer
 
-		/* Set mavlink message: HEARTBEAT 
+		/* Create mavlink message: HEARTBEAT 
 		 * TODO: custom mavlink messages */
 		mavlink_msg_heartbeat_pack(1, 200, &mavmsg,
 				MAV_TYPE_HELICOPTER,
@@ -168,14 +169,17 @@ void sendMessages() {
 				MAV_MODE_GUIDED_ARMED, 0, MAV_STATE_ACTIVE);
 		len = mavlink_msg_to_send_buffer(buf, &mavmsg);
 
-		/* Send the message, measure rtt */
+		/* Send the message */
 		if ((bytes_sent = write(fd, buf, len)) < 0 ) {
 			fprintf(stderr, "Unable to send! exiting..\n");
 			exit(1);
 		} 
+
 		/* Start timer */
 		timer = clock();
-		/* Read one byte from radio */ while ((len = read(fd, &temp, 1)) > 0) {
+
+		/* Read one byte from radio */ 
+		while ((len = read(fd, &temp, 1)) > 0) {
 			buf[i++] = temp;
 			bytes_read += len;
 			/* Parse packet */
@@ -192,9 +196,9 @@ void sendMessages() {
 					time_struct = *localtime(&time_var);
 
 					/* Indicate packet is received */
-					fprintf(stdout, "%d:%d:%d recv HEARTBEAT: size=%d seq=-999 rtt=%lfms\n", 
+					fprintf(stdout, "%d:%d:%d recv HEARTBEAT: size=%d seq=%d rtt=%lfms\n", 
 							time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
-							bytes_read, time_taken);
+							bytes_read, mavmsg.seq, time_taken);
 					fprintf(stdout, "Received packet: SYS:%d, COMP:%d, LEN:%d, MSG ID:%d\n",
 							mavmsg.sysid, mavmsg.compid, mavmsg.len, mavmsg.msgid);
 
@@ -255,7 +259,7 @@ void savePersistantData(mavlink_message_t mavmsg, uint8_t* mavframe,
 		strcat(buf, buf_t);
 	}
 	strftime(timebuf, 20, "%X", timeinfo);
-	snprintf(insert_query, BUFFER_LEN, "INSERT INTO records (session_id, frame_seq, frame_contents, time_sent, msg_size, rtt, uplink_time, downlink_time) VALUES ( %s, %d, %s, %s, %d, %lf, %lf, %lf );", session_id, 999, buf, timebuf, msg_size, rtt, uplink_time, downlink_time);
+	snprintf(insert_query, BUFFER_LEN, "INSERT INTO records (session_id, frame_seq, frame_contents, time_sent, msg_size, rtt, uplink_time, downlink_time) VALUES ( '%s', %d, '%s', '%s', %d, %lf, %lf, %lf );", session_id, mavmsg.seq, buf, timebuf, msg_size, rtt, uplink_time, downlink_time);
 
 	/* Execute SQL insert statement */
 	if (sqlite3_exec(db, insert_query, callback, 0, &err_msg) != SQLITE_OK) {

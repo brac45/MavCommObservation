@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<mavlink>
+	<include>common.xml</include>
+	<enums>
+	</enums>
+	<messages>
+		<message id="150" name="TEST_FRAME_64">
+			<description>This message is used for testing communication techniques and protocols.</description>
+			<field type="uint16_t" name="position">The raw data from the position sensor, generally a potentiometer.</field>
+			<field type="uint8_t" name="port_limit">Status of the rudder limit sensor, port side. 0 indicates off and 1 indicates that the limit is hit. If this sensor is inactive set to 0xFF.</field>
+			<field type="uint8_t" name="center_limit">Status of the rudder limit sensor, port side. 0 indicates off and 1 indicates that the limit is hit. If this sensor is inactive set to 0xFF.</field>
+			<field type="uint8_t" name="starboard_limit">Status of the rudder limit sensor, starboard side. 0 indicates off and 1 indicates that the limit is hit. If this sensor is inactive set to 0xFF.</field>
+		</message>
+	</messages>
+</mavlink>
