@@ -11,28 +11,26 @@ CFLAGS := -g -Wall
 
 #	Directory and main executable variable
 SRCDIR := src
-BUILDDIR := build
 BIN := bin
 TARGET := $(BIN)/bluetooth-server.out
 
 # File extensions and some more options
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
-OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../mavlink-headers/common
+LIB := -lbluetooth
+INCLUDE := -I ../mavlink-headers/common
 
 # =========== Build procedure ========
-$(TARGET): $(OBJECTS)
-	@echo "Linking.."
-	$(CC) $^ -o $(TARGET)
-
-$(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
-	@echo "Creating Objects.."
-	$(CC) $(CFLAGS) $(LIB) -c -o $@ $<
+$(TARGET): 
+	@echo "Building bluetooth client.."
+	$(CC) $(INCLUDE) -o $(TARGET) $(SOURCES) $(LIB)
 
 clean:
 	@echo "Cleaning.."
-	rm -vf "$(TARGET)"
-	find $(BUILDDIR) -name "*.o" -exec rm -rvf {} \;
+	rm -vf bin/* 
+
+# TESTS
+test:
+	$(CC) $(CFLAGS) test/tester.cpp $(INCLUDE) $(LIBRARY) -o bin/tester
 
 .PHONY: clean

@@ -8,6 +8,7 @@
 #include <termios.h>
 #include <stdint.h>
 #include <time.h>
+#include <sqlite3.h>
 
 /* Common mavlink messages */
 #include <mavlink.h>
@@ -19,20 +20,38 @@
 #define TRUE 1
 #define FALSE 0
 
-/* Globals */
+/* Globals(termios and database specific) */
 struct termios	oldtio, newtio;
 int							fd;
+char						database_file[50];
+char						session_id[11];
+sqlite3					*db;
 
 /* Signal handler */
 void signal_handler(int);
 /* Start messaging procedure */
 void sendMessages(); 
+/* Insert records into database */
+void savePersistantData(mavlink_message_t mavmsg, uint8_t* mavframe, 
+		struct tm * timeinfo, int msg_size, double rtt, double uplink_time, 
+		double downlink_time);
+/* callback function from sqlite3 c api */
+static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+	int i = 0;
+	for (i=0; i<argc; i++) {
+		fprintf(stdout, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	}
+	fprintf(stdout, "\n");
+	return 0;
+}
 
 /*
  * main procedure for the serial client
- * argv[1] : device path */
-int main(int argc, char **argv){
-	if (argc != 2) {
+ * argv[1] : device path 
+ * argv[2] : sqlite3 database file path 
+ * argv[3] : observation session ID */
+int main(int argc, char **argv) {
+	if (argc != 4) {
 		fprintf(stderr, "Fatal error! not enough args\n");
 		exit(1);
 	}
@@ -46,6 +65,17 @@ int main(int argc, char **argv){
 		exit(1);
 	} else {
 		fprintf(stdout, "main: using %s..\n", argv[1]);
+	}
+
+	/* Insert session id */
+	strcpy(session_id, argv[3]);
+
+	/* Copy sqlite3 database file path and try to open it */
+	strcpy(database_file, argv[2]);
+	if (sqlite3_open(database_file, &db)) {
+		fprintf(stderr, "Unable to open %s %s\n", database_file, sqlite3_errmsg(db));
+	} else {
+		fprintf(stdout, "Opened DB %s\n", database_file);
 	}
 
 	/* Save current port settings */
@@ -88,9 +118,10 @@ int main(int argc, char **argv){
 void signal_handler(int sign) {
 	if (sign == SIGINT) {
 		fprintf(stdout, "signal_handler: SIGINT\n");
-		// reset options
+		// reset options and close stuff
 		tcsetattr(fd, TCSANOW, &oldtio);
 		close(fd);
+		sqlite3_close(db);
 
 		fprintf(stdout, "signal_handler: closing application..\n");
 		exit(0);
@@ -98,117 +129,137 @@ void signal_handler(int sign) {
 }
 
 void sendMessages() {
-	/*
-	 * len	: function return values */
-	int bytes_read, bytes_sent, len;
+	/* len	: function return values */
+	int bytes_read, bytes_sent, len, i = 0;
 	/* mavlink variables */
 	mavlink_message_t mavmsg;
 	mavlink_status_t mavstatus;
-	/*
-	 * buf	: sending buffer 
+	/* buf	: sending buffer 
 	 * temp	: temporary uint8_t value */
 	uint8_t buf[BUFFER_LEN];
 	uint8_t temp;
 	/* flags */
-	int should_resend_message = TRUE;
-	int should_reset_buffers = TRUE;
+	/* Timers and time */
 	clock_t timer;
 	double time_taken;
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
 
 	/* Indicate test has started*/
-	fprintf(stdout, "Starting CLIENT, date: %d-%d-%d\n",
+	fprintf(stdout, "Starting CLIENT, session ID: %s, date: %d-%d-%d\n",
+			session_id, 
 			time_struct.tm_year+1900, time_struct.tm_mon+1, time_struct.tm_mday);
 
 	/* Main loop */
 	while(TRUE) {
-		if (should_reset_buffers) {
-			/* Reset buffers and variables */
-			bytes_read = 0;
-			temp = 0;
-			memset((char*)&mavstatus, 0, sizeof(mavstatus));
-			memset((char*)&mavmsg, 0, sizeof(mavmsg));
-			memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);		// Sending buffer
-			should_reset_buffers = FALSE;
-		}
-		if (should_resend_message) {
-			/* Set mavlink message: HEARTBEAT 
-			 * TODO: custom mavlink messages */
-			mavlink_msg_heartbeat_pack(1, 200, &mavmsg,
-					MAV_TYPE_HELICOPTER,
-					MAV_AUTOPILOT_GENERIC,
-					MAV_MODE_GUIDED_ARMED, 0, MAV_STATE_ACTIVE);
-			len = mavlink_msg_to_send_buffer(buf, &mavmsg);
+		/* Reset buffers and variables */
+		i = 0;
+		bytes_read = 0;
+		temp = 0;
+		memset((char*)&mavstatus, 0, sizeof(mavstatus));
+		memset((char*)&mavmsg, 0, sizeof(mavmsg));
+		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);		// mavmsg buffer
 
-			/* Send the message, measure rtt */
-			if ((bytes_sent = write(fd, buf, len)) < 0 ) {
-				fprintf(stderr, "Unable to send! exiting..\n");
-				exit(1);
-			} 
+		/* Set mavlink message: HEARTBEAT 
+		 * TODO: custom mavlink messages */
+		mavlink_msg_heartbeat_pack(1, 200, &mavmsg,
+				MAV_TYPE_HELICOPTER,
+				MAV_AUTOPILOT_GENERIC,
+				MAV_MODE_GUIDED_ARMED, 0, MAV_STATE_ACTIVE);
+		len = mavlink_msg_to_send_buffer(buf, &mavmsg);
 
-			/* Set flag for resending messages */
-			should_resend_message = FALSE;
-
-			/* Start timer */
-			timer = clock();
-		}
-		/* Read one byte from buffer */
-		while ((len = read(fd, &temp, 1)) > 0) {
+		/* Send the message, measure rtt */
+		if ((bytes_sent = write(fd, buf, len)) < 0 ) {
+			fprintf(stderr, "Unable to send! exiting..\n");
+			exit(1);
+		} 
+		/* Start timer */
+		timer = clock();
+		/* Read one byte from radio */ while ((len = read(fd, &temp, 1)) > 0) {
+			buf[i++] = temp;
 			bytes_read += len;
 			/* Parse packet */
 			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &mavstatus)) {
-				/* Valid packet received */
-				switch (mavmsg.msgid) {
-					/* Heartbeat message */
-					case MAVLINK_MSG_ID_HEARTBEAT:
-						/* Stop timer */
-						timer = clock() - timer;
-						time_taken = ((double)timer) / CLOCKS_PER_SEC;
-						time_taken = time_taken * 1000;
+				/* Valid packet received, switch on msgid */
+				if (mavmsg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
+					/* Stop timer */
+					timer = clock() - timer;
+					time_taken = ((double)timer) / CLOCKS_PER_SEC;
+					time_taken = time_taken * 1000;
 
-						/* Get current date */
-						time_var = time(NULL);
-						time_struct = *localtime(&time_var);
+					/* Get current date */
+					time_var = time(NULL);
+					time_struct = *localtime(&time_var);
 
-						/* Indicate packet is received */
-						should_reset_buffers = TRUE;
-						should_resend_message = TRUE;
-						fprintf(stdout, "%d:%d:%d %d bytes from MAV(HEARTBEAT): seq=-999 rtt%lfms\n", 
-								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
-								bytes_read, time_taken);
-						fprintf(stdout, "Received packet: SYS:%d, COMP:%d, LEN:%d, MSG ID:%d\n",
-								mavmsg.sysid, mavmsg.compid, mavmsg.len, mavmsg.msgid);
-						break;
+					/* Indicate packet is received */
+					fprintf(stdout, "%d:%d:%d recv HEARTBEAT: size=%d seq=-999 rtt=%lfms\n", 
+							time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
+							bytes_read, time_taken);
+					fprintf(stdout, "Received packet: SYS:%d, COMP:%d, LEN:%d, MSG ID:%d\n",
+							mavmsg.sysid, mavmsg.compid, mavmsg.len, mavmsg.msgid);
 
-						/* Radio status message (sik radios only) */
-					case MAVLINK_MSG_ID_RADIO_STATUS:
-						/* Show radio status */
-						should_reset_buffers = TRUE;
-						should_resend_message = FALSE;
-						fprintf(stdout, "%d:%d:%d %d bytes from radio\n",
-								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
-								bytes_read);
-						fprintf(stdout, "rssi: %u, remrssi: %u\n",
-								mavlink_msg_radio_status_get_rssi(&mavmsg),
-								mavlink_msg_radio_status_get_remrssi(&mavmsg));
-						break;
+					/* Save data */
+					savePersistantData(mavmsg, buf, &time_struct, bytes_read, time_taken, 0.0, 0.0);
+
+					/* Wait 1 second and break from read loop */
+					sleep(1);
+					break;
+				} else if (mavmsg.msgid == MAVLINK_MSG_ID_RADIO_STATUS) {
+					/* Get current date */
+					time_var = time(NULL);
+					time_struct = *localtime(&time_var);
+
+					/* Show radio status */
+					fprintf(stdout, "%d:%d:%d %d bytes from radio\n",
+							time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
+							bytes_read);
+					fprintf(stdout, "rssi: %u, remrssi: %u\n",
+							mavlink_msg_radio_status_get_rssi(&mavmsg),
+							mavlink_msg_radio_status_get_remrssi(&mavmsg));
+
+					/* Clear buffers */
+					i = 0;
+					bytes_read = 0;
+					temp = 0;
+					memset((char*)&mavstatus, 0, sizeof(mavstatus));
+					memset((char*)&mavmsg, 0, sizeof(mavmsg));
+					memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
+				} else {
+					/* Clear buffers */
+					i = 0;
+					bytes_read = 0;
+					temp = 0;
+					memset((char*)&mavstatus, 0, sizeof(mavstatus));
+					memset((char*)&mavmsg, 0, sizeof(mavmsg));
+					memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
 				}
-				/* Break read loop */
-				break;
 			}
 		}
+	}
+}
 
-		/* TODO: find a way to keep persistant data(MYSQL, sqlite3 etc) 
-		 * TODO: What I should be testing:
-		 *				- number of bytes sent/received 
-		 *				- rtt(round trip time)
-		 *				- uplink time
-		 *				- downlink time 
-		 *				- rssi
-		 *				- remote rssi */
+void savePersistantData(mavlink_message_t mavmsg, uint8_t* mavframe, 
+		struct tm * timeinfo, int msg_size, double rtt, double uplink_time, 
+		double downlink_time) {
+	char insert_query[BUFFER_LEN];
+	int i;
+	char buf[1024];		// buffer for mav raw frame
+	char buf_t[3];
+	char timebuf[20];	// buffer for time
+	char *err_msg = 0;
+	memset(buf, 0, sizeof(char) * 1024);		// reset buffer
 
-		/* sleep for 1 second */
-		sleep(1);
+	/* Create SQL insert statement */
+	for (i=0; i<msg_size; i++) {
+		snprintf(buf_t, 3, "%02X", mavframe[i]);
+		strcat(buf, buf_t);
+	}
+	strftime(timebuf, 20, "%X", timeinfo);
+	snprintf(insert_query, BUFFER_LEN, "INSERT INTO records (session_id, frame_seq, frame_contents, time_sent, msg_size, rtt, uplink_time, downlink_time) VALUES ( %s, %d, %s, %s, %d, %lf, %lf, %lf );", session_id, 999, buf, timebuf, msg_size, rtt, uplink_time, downlink_time);
+
+	/* Execute SQL insert statement */
+	if (sqlite3_exec(db, insert_query, callback, 0, &err_msg) != SQLITE_OK) {
+		fprintf(stderr, "SQL ERROR: %s\n", err_msg);
+		sqlite3_free(err_msg);
 	}
 }

@@ -23,11 +23,12 @@ SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 TESTSRCS := $(shell find $(TEST) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
 LIB := -I ../mavlink-headers/common
+SQLITE := -l sqlite3
 
 # =========== Build procedure ========
 $(TARGET): $(OBJECTS)
 	@echo "Linking.."
-	$(CC) $^ -o $(TARGET)
+	$(CC) $^ -o $(TARGET) $(SQLITE)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 	@echo "Creating Objects.."

@@ -2,7 +2,7 @@
 
 # Interface for the MAVlink messaging experiment
 
-##### Constants
+##### Configuration file
 
 DB_FILE="database.db"
 TEMP_FILE="/tmp/sqltemp"
@@ -16,7 +16,7 @@ DB_SESSION_TABLE="CREATE TABLE IF NOT EXISTS session (\
 DB_RECORDS_TABLE="CREATE TABLE IF NOT EXISTS records (\
 	session_id INTEGER NOT NULL, \
 	frame_seq INTEGER NOT NULL, \
-	frame_contents BLOB NOT NULL, \
+	frame_contents TEXT NOT NULL, \
 	time_sent TEXT NOT NULL, \
 	msg_size INTEGER NOT NULL, \
 	rtt REAL NOT NULL, \
