@@ -18,7 +18,7 @@ TARGET := $(BIN)/bluetooth-client.out
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 LIB := -lbluetooth
-INCLUDE := -I ../mavlink-headers/common
+INCLUDE := -I ../message-headers/common
 
 # =========== Build procedure ========
 $(TARGET): 

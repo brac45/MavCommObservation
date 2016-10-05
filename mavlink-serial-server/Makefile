@@ -19,7 +19,7 @@ TARGET := $(BIN)/serial-server.out
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../mavlink-headers/common
+LIB := -I ../message-headers/common
 SQLITE := -l sqlite3
 
 # =========== Build procedure ========

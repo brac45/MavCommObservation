@@ -22,7 +22,7 @@ SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 TESTSRCS := $(shell find $(TEST) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../mavlink-headers/common
+LIB := -I ../message-headers/common
 SQLITE := -l sqlite3
 
 # =========== Build procedure ========
@@ -36,7 +36,7 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 
 clean:
 	@echo "Cleaning.."
-	rm -vf "$(TARGET)"
+	rm -vf $(BIN)/*
 	find $(BUILDDIR) -name "*.o" -exec rm -rvf {} \;
 
 testing:

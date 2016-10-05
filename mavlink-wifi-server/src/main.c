@@ -10,18 +10,35 @@
 
 /* Constants */
 #define BUFFER_LENGTH 2041 
-#define PORT_NUM			8888 // Port number
+#define TCP 99
+#define UDP 98
+#define UNDEFINED 999
 
 /* Echo messages */
 void echoMessages(int sock);
+/* Parse args 
+ * @args int		argc
+ *       char** argv
+ *       int*	  protocol
+ *       int*		port_num
+ * @return 1 if successful, 0 if not */
+int parseArgs(int, char**, int*, int*);
+/* Show usage */
+void usage();
 
 /* Main function */
 int main(int argc, char* argv[]) {
 	// Variables
 	struct sockaddr_in locaddr;
 	int	fd;
-	int i;
-	int len;
+	int port_num = 0;
+	int protocol = UNDEFINED;
+
+	/* Parse arguments */
+	if (!parseArgs(argc, argv, &protocol, &port_num)) {
+		usage();
+		exit(1);
+	}
 
 	/* Create a socket for datagrams 
 	 * IP protocol family: AF_INET
@@ -35,7 +52,7 @@ int main(int argc, char* argv[]) {
 	 * */
 	memset((char*)&locaddr, 0, sizeof(locaddr));
 	locaddr.sin_family = AF_INET;
-	locaddr.sin_port = htons(PORT_NUM);
+	locaddr.sin_port = htons(port_num);
 	locaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	/* Bind socket to port */
@@ -52,7 +69,7 @@ void echoMessages(int sock) {
 	int recv_len;
 	char buf[BUFFER_LENGTH];
 	struct sockaddr_in remote;
-	int s_size = sizeof(remote);
+	unsigned int s_size = sizeof(remote);
 
 	while(1) {
 		fflush(stdout);
@@ -73,4 +90,38 @@ void echoMessages(int sock) {
 			perror("sendto() failed");
 		}
 	}
+}
+
+int parseArgs(int argc, char** argv, int* protocol, int* port_num) {
+	/* TCP or UDP */
+	if (argc == 4) {
+		/* TCP or UDP */
+		if (strcmp("-t", argv[1]) == 0) {
+			*protocol = TCP;
+		} else if (strcmp("-u", argv[1]) == 0) {
+			*protocol = UDP;
+		} else {
+			return 0;
+		}
+
+		/* Port number*/
+		if (strcmp("--port", argv[2]) == 0) {
+			*port_num = atoi(argv[3]);
+			return 1;
+		} else {
+			printf("[DEBUG] incorrect argv[2]\n");
+			return 0;
+		}
+	} else {
+		printf("[DEBUG] incorrect number of args\n");
+		/* Incorrect number of args */
+		return 0;
+	}
+}
+
+void usage() {
+	fprintf(stdout, "usage..\n");
+	fprintf(stdout, "./$(PROGRAM) [-t | -u] [--port PORT]\n");
+	fprintf(stdout, "		-t | -u : tcp or udp protocol (only one may be used)\n");
+	fprintf(stdout, "		--port : port number to be listened to\n");
 }
