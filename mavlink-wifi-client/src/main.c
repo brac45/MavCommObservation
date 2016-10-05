@@ -2,9 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <time.h>
+//#include <time.h>
 
 /* This assumes you have the mavlink headers on your include path
 	 or in the same folder as this source file */
@@ -64,7 +65,7 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 
-	/* Fill out addr */
+	/* Fill out addresses */
 	memset((char*)&remote, 0, sizeof(remote));
 	remote.sin_family = AF_INET;
 	remote.sin_port = htons(port_num);
@@ -73,9 +74,9 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 
-	/* Indicate that test has started */
+	/* Start test */
 	if (protocol == TCP) {
-		fprintf(stdout, "Not yet implemented\n");
+		fprintf(stdout, "TCP not yet implemented\n");
 		exit(1);
 	} else if (protocol == UDP) {
 		fprintf(stdout, "Starting wifi UDP client, date: %d-%d-%d\n", 
@@ -88,6 +89,7 @@ int main(int argc, char* argv[]) {
 }
 
 void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
+	/* Timers */
 	clock_t timer;
 	double time_taken;
 	/* MAVLink message variables */
@@ -98,6 +100,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 	int bytes_sent;
 	int i, len;
 	/* Time variables */
+	struct timeval timestamp;
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
 	
@@ -111,7 +114,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 		memset((char*)&status, 0, sizeof(status));
 		memset((char*)buf, '\0', sizeof(uint8_t) * BUFFER_LENGTH);
 
-		/* Set mavlink message : HEARTBEAT */
+		/* Set mavlink message : TEST_FRAME */
 		mavlink_msg_heartbeat_pack(1, 200, &mavmsg, 
 				MAV_TYPE_HELICOPTER, 
 				MAV_AUTOPILOT_GENERIC, 
