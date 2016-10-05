@@ -96,10 +96,11 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 	ssize_t recvsize;
 	int bytes_sent;
 	int i, len;
-	/* Time variables */
+	/* Time variables
+	 * timestamps hold current time in milliseconds since epoch */
 	struct timeval tv;
-	uint64_t timestamp_echo = 0, timestamp_cur = 0, 
-					 time_taken, uplink_time, downlink_time;
+	double timestamp_echo = 0.0, timestamp_cur = 0.0, 
+				 time_taken, uplink_time, downlink_time;
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
 	unsigned int s_size = sizeof(*remote);
@@ -114,8 +115,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 
 		/* Get timestamp (milliseconds from epoch) */
 		gettimeofday(&tv, NULL);
-		timestamp_cur = ((uint64_t)(tv.tv_sec) * 1000) 
-			+ ((uint64_t)(tv.tv_usec) / 1000);
+		timestamp_cur = ((double)(tv.tv_sec) * 1000) 
+			+ ((double)(tv.tv_usec) / 1000);
 
 		/* Pack mavlink message */
 		mavlink_msg_test_frame_pack(1, 200, &mavmsg,
@@ -143,8 +144,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 					if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
 						/* Get measured rtt, uplink and downlink time */
 						gettimeofday(&tv, NULL);
-						timestamp_cur = ((uint64_t)(tv.tv_sec) * 1000) 
-							+ ((uint64_t)(tv.tv_usec) / 1000);
+						timestamp_cur = ((double)(tv.tv_sec) * 1000) 
+							+ ((double)(tv.tv_usec) / 1000);
 						time_taken = timestamp_cur - 
 							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg);
 						uplink_time = mavlink_msg_test_frame_get_timestamp_echo(&mavmsg) -
@@ -160,10 +161,10 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 						fprintf(stdout, "%d:%d:%d %d bytes from MAV(%s:%d)\n",
 								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
 								(int)recvsize, inet_ntoa(remote->sin_addr), ntohs(remote->sin_port));
-						fprintf(stdout, "seq_num: %u rtt: %lu, ut: %lums, dt: %lums\n",
+						fprintf(stdout, "seq_num: %u rtt: %lf, ut: %lfms, dt: %lfms\n",
 								mavlink_msg_test_frame_get_sequence(&mavmsg),
 								time_taken, uplink_time, downlink_time);
-						fprintf(stdout, "[DEBUG] timestamp_sender: %lu, timestamp_echo: %lu\n",
+						fprintf(stdout, "[DEBUG] timestamp_sender: %lf, timestamp_echo: %lf\n",
 								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
 								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 

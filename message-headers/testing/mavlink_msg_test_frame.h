@@ -4,8 +4,8 @@
 
 MAVPACKED(
 typedef struct __mavlink_test_frame_t {
- uint64_t timestamp_sender; /*< Timestamp of the frame when it was created. Counted in milliseconds since Epoch.*/
- uint64_t timestamp_echo; /*< Timestamp of the frame when it was received and echoed back. Counted in milliseconds since Epoch.*/
+ double timestamp_sender; /*< Timestamp of the frame when it was created. Counted in milliseconds since Epoch.*/
+ double timestamp_echo; /*< Timestamp of the frame when it was received and echoed back. Counted in milliseconds since Epoch.*/
  uint32_t sequence; /*< Frame sequence number.*/
 }) mavlink_test_frame_t;
 
@@ -14,8 +14,8 @@ typedef struct __mavlink_test_frame_t {
 #define MAVLINK_MSG_ID_150_LEN 20
 #define MAVLINK_MSG_ID_150_MIN_LEN 20
 
-#define MAVLINK_MSG_ID_TEST_FRAME_CRC 248
-#define MAVLINK_MSG_ID_150_CRC 248
+#define MAVLINK_MSG_ID_TEST_FRAME_CRC 247
+#define MAVLINK_MSG_ID_150_CRC 247
 
 
 
@@ -24,8 +24,8 @@ typedef struct __mavlink_test_frame_t {
 	150, \
 	"TEST_FRAME", \
 	3, \
-	{  { "timestamp_sender", NULL, MAVLINK_TYPE_UINT64_T, 0, 0, offsetof(mavlink_test_frame_t, timestamp_sender) }, \
-         { "timestamp_echo", NULL, MAVLINK_TYPE_UINT64_T, 0, 8, offsetof(mavlink_test_frame_t, timestamp_echo) }, \
+	{  { "timestamp_sender", NULL, MAVLINK_TYPE_DOUBLE, 0, 0, offsetof(mavlink_test_frame_t, timestamp_sender) }, \
+         { "timestamp_echo", NULL, MAVLINK_TYPE_DOUBLE, 0, 8, offsetof(mavlink_test_frame_t, timestamp_echo) }, \
          { "sequence", NULL, MAVLINK_TYPE_UINT32_T, 0, 16, offsetof(mavlink_test_frame_t, sequence) }, \
          } \
 }
@@ -33,8 +33,8 @@ typedef struct __mavlink_test_frame_t {
 #define MAVLINK_MESSAGE_INFO_TEST_FRAME { \
 	"TEST_FRAME", \
 	3, \
-	{  { "timestamp_sender", NULL, MAVLINK_TYPE_UINT64_T, 0, 0, offsetof(mavlink_test_frame_t, timestamp_sender) }, \
-         { "timestamp_echo", NULL, MAVLINK_TYPE_UINT64_T, 0, 8, offsetof(mavlink_test_frame_t, timestamp_echo) }, \
+	{  { "timestamp_sender", NULL, MAVLINK_TYPE_DOUBLE, 0, 0, offsetof(mavlink_test_frame_t, timestamp_sender) }, \
+         { "timestamp_echo", NULL, MAVLINK_TYPE_DOUBLE, 0, 8, offsetof(mavlink_test_frame_t, timestamp_echo) }, \
          { "sequence", NULL, MAVLINK_TYPE_UINT32_T, 0, 16, offsetof(mavlink_test_frame_t, sequence) }, \
          } \
 }
@@ -52,12 +52,12 @@ typedef struct __mavlink_test_frame_t {
  * @return length of the message in bytes (excluding serial stream start sign)
  */
 static inline uint16_t mavlink_msg_test_frame_pack(uint8_t system_id, uint8_t component_id, mavlink_message_t* msg,
-						       uint32_t sequence, uint64_t timestamp_sender, uint64_t timestamp_echo)
+						       uint32_t sequence, double timestamp_sender, double timestamp_echo)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
 	char buf[MAVLINK_MSG_ID_TEST_FRAME_LEN];
-	_mav_put_uint64_t(buf, 0, timestamp_sender);
-	_mav_put_uint64_t(buf, 8, timestamp_echo);
+	_mav_put_double(buf, 0, timestamp_sender);
+	_mav_put_double(buf, 8, timestamp_echo);
 	_mav_put_uint32_t(buf, 16, sequence);
 
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), buf, MAVLINK_MSG_ID_TEST_FRAME_LEN);
@@ -87,12 +87,12 @@ static inline uint16_t mavlink_msg_test_frame_pack(uint8_t system_id, uint8_t co
  */
 static inline uint16_t mavlink_msg_test_frame_pack_chan(uint8_t system_id, uint8_t component_id, uint8_t chan,
 							   mavlink_message_t* msg,
-						           uint32_t sequence,uint64_t timestamp_sender,uint64_t timestamp_echo)
+						           uint32_t sequence,double timestamp_sender,double timestamp_echo)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
 	char buf[MAVLINK_MSG_ID_TEST_FRAME_LEN];
-	_mav_put_uint64_t(buf, 0, timestamp_sender);
-	_mav_put_uint64_t(buf, 8, timestamp_echo);
+	_mav_put_double(buf, 0, timestamp_sender);
+	_mav_put_double(buf, 8, timestamp_echo);
 	_mav_put_uint32_t(buf, 16, sequence);
 
         memcpy(_MAV_PAYLOAD_NON_CONST(msg), buf, MAVLINK_MSG_ID_TEST_FRAME_LEN);
@@ -146,12 +146,12 @@ static inline uint16_t mavlink_msg_test_frame_encode_chan(uint8_t system_id, uin
  */
 #ifdef MAVLINK_USE_CONVENIENCE_FUNCTIONS
 
-static inline void mavlink_msg_test_frame_send(mavlink_channel_t chan, uint32_t sequence, uint64_t timestamp_sender, uint64_t timestamp_echo)
+static inline void mavlink_msg_test_frame_send(mavlink_channel_t chan, uint32_t sequence, double timestamp_sender, double timestamp_echo)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
 	char buf[MAVLINK_MSG_ID_TEST_FRAME_LEN];
-	_mav_put_uint64_t(buf, 0, timestamp_sender);
-	_mav_put_uint64_t(buf, 8, timestamp_echo);
+	_mav_put_double(buf, 0, timestamp_sender);
+	_mav_put_double(buf, 8, timestamp_echo);
 	_mav_put_uint32_t(buf, 16, sequence);
 
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_TEST_FRAME, buf, MAVLINK_MSG_ID_TEST_FRAME_MIN_LEN, MAVLINK_MSG_ID_TEST_FRAME_LEN, MAVLINK_MSG_ID_TEST_FRAME_CRC);
@@ -187,12 +187,12 @@ static inline void mavlink_msg_test_frame_send_struct(mavlink_channel_t chan, co
   is usually the receive buffer for the channel, and allows a reply to an
   incoming message with minimum stack space usage.
  */
-static inline void mavlink_msg_test_frame_send_buf(mavlink_message_t *msgbuf, mavlink_channel_t chan,  uint32_t sequence, uint64_t timestamp_sender, uint64_t timestamp_echo)
+static inline void mavlink_msg_test_frame_send_buf(mavlink_message_t *msgbuf, mavlink_channel_t chan,  uint32_t sequence, double timestamp_sender, double timestamp_echo)
 {
 #if MAVLINK_NEED_BYTE_SWAP || !MAVLINK_ALIGNED_FIELDS
 	char *buf = (char *)msgbuf;
-	_mav_put_uint64_t(buf, 0, timestamp_sender);
-	_mav_put_uint64_t(buf, 8, timestamp_echo);
+	_mav_put_double(buf, 0, timestamp_sender);
+	_mav_put_double(buf, 8, timestamp_echo);
 	_mav_put_uint32_t(buf, 16, sequence);
 
     _mav_finalize_message_chan_send(chan, MAVLINK_MSG_ID_TEST_FRAME, buf, MAVLINK_MSG_ID_TEST_FRAME_MIN_LEN, MAVLINK_MSG_ID_TEST_FRAME_LEN, MAVLINK_MSG_ID_TEST_FRAME_CRC);
@@ -227,9 +227,9 @@ static inline uint32_t mavlink_msg_test_frame_get_sequence(const mavlink_message
  *
  * @return Timestamp of the frame when it was created. Counted in milliseconds since Epoch.
  */
-static inline uint64_t mavlink_msg_test_frame_get_timestamp_sender(const mavlink_message_t* msg)
+static inline double mavlink_msg_test_frame_get_timestamp_sender(const mavlink_message_t* msg)
 {
-	return _MAV_RETURN_uint64_t(msg,  0);
+	return _MAV_RETURN_double(msg,  0);
 }
 
 /**
@@ -237,9 +237,9 @@ static inline uint64_t mavlink_msg_test_frame_get_timestamp_sender(const mavlink
  *
  * @return Timestamp of the frame when it was received and echoed back. Counted in milliseconds since Epoch.
  */
-static inline uint64_t mavlink_msg_test_frame_get_timestamp_echo(const mavlink_message_t* msg)
+static inline double mavlink_msg_test_frame_get_timestamp_echo(const mavlink_message_t* msg)
 {
-	return _MAV_RETURN_uint64_t(msg,  8);
+	return _MAV_RETURN_double(msg,  8);
 }
 
 /**

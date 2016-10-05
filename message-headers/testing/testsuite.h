@@ -36,7 +36,7 @@ static void mavlink_test_test_frame(uint8_t system_id, uint8_t component_id, mav
         uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
         uint16_t i;
 	mavlink_test_frame_t packet_in = {
-		93372036854775807ULL,93372036854776311ULL,963498296
+		123.0,179.0,963498296
     };
 	mavlink_test_frame_t packet1, packet2;
         memset(&packet1, 0, sizeof(packet1));

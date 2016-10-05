@@ -73,7 +73,7 @@ void serverRoutine(int sock) {
 	struct timeval tv;
 	int recv_len, retlen;
 	uint8_t buf[BUFFER_LENGTH];
-	uint64_t timestamp;
+	double timestamp;
 	struct sockaddr_in remote;
 	unsigned int s_size = sizeof(remote);
 
@@ -95,15 +95,15 @@ void serverRoutine(int sock) {
 						/* Indicate packet is received */
 						fprintf(stdout, "%d bytes received(%s:%d)\n",
 								(int)recv_len, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
-						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lu, timestamp_echo: %lu\n",
+						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lf, timestamp_echo: %lf\n",
 								mavlink_msg_test_frame_get_sequence(&mavmsg),
 								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
 								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
 						/* Get current timestamp */
 						gettimeofday(&tv, NULL);
-						timestamp = ((uint64_t)(tv.tv_sec) * 1000) +
-							((uint64_t)(tv.tv_usec) / 1000);
+						timestamp = ((double)(tv.tv_sec) * 1000) 
+							+ ((double)(tv.tv_usec) / 1000);
 
 						/* Reset buffer */
 						memset((char*)buf, 0, BUFFER_LENGTH);
@@ -113,10 +113,10 @@ void serverRoutine(int sock) {
 								mavlink_msg_test_frame_get_sequence(&mavmsg),
 								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
 								timestamp);
-						retlen = mavlink_msg_to_send_buffer(buf, &mavmsg);
+						retlen = mavlink_msg_to_send_buffer(buf, &newmsg);
 
 						// TODO: DEBUG
-						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lu, timestamp_echo: %lu\n",
+						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lf, timestamp_echo: %lf\n",
 								mavlink_msg_test_frame_get_sequence(&newmsg),
 								mavlink_msg_test_frame_get_timestamp_sender(&newmsg),
 								mavlink_msg_test_frame_get_timestamp_echo(&newmsg));

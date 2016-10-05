@@ -7,8 +7,8 @@
 		<message id="150" name="TEST_FRAME">
 			<description>This message is used for testing communication techniques and protocols.</description>
 			<field type="uint32_t" name="sequence">Frame sequence number.</field>
-			<field type="uint64_t" name="timestamp_sender">Timestamp of the frame when it was created. Counted in milliseconds since Epoch.</field>
-			<field type="uint64_t" name="timestamp_echo">Timestamp of the frame when it was received and echoed back. Counted in milliseconds since Epoch.</field>
+			<field type="double" name="timestamp_sender">Timestamp of the frame when it was created. Counted in milliseconds since Epoch.</field>
+			<field type="double" name="timestamp_echo">Timestamp of the frame when it was received and echoed back. Counted in milliseconds since Epoch.</field>
 		</message>
 	</messages>
 </mavlink>
