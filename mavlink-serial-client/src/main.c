@@ -24,7 +24,7 @@
 struct termios	oldtio, newtio;
 int							fd;
 char						database_file[50];
-char						session_id[11];
+char						session_id[12];
 sqlite3					*db;
 
 /* Signal handler */
