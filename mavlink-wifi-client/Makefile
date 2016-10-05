@@ -19,7 +19,7 @@ TARGET := $(BIN)/wifi-client.out
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../message-headers/common
+LIB := -I ../message-headers/testing -I ../message-headers/common
 
 # =========== Build procedure ========
 $(TARGET): $(OBJECTS)

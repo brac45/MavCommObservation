@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 
 /* This assumes you have the mavlink headers on your include path
 	 or in the same folder as this source file */
@@ -15,7 +16,7 @@
 #define UNDEFINED 999
 
 /* Echo messages */
-void echoMessages(int sock);
+void serverRoutine(int sock);
 /* Parse args 
  * @args int		argc
  *       char** argv
@@ -62,32 +63,71 @@ int main(int argc, char* argv[]) {
 	}
 
 	/* Start echoing routine */
-	echoMessages(fd);
+	serverRoutine(fd);
 }
 
-void echoMessages(int sock) {
-	int recv_len;
-	char buf[BUFFER_LENGTH];
+void serverRoutine(int sock) {
+	int i = 0;
+	mavlink_message_t mavmsg, newmsg;
+	mavlink_status_t status;
+	struct timeval tv;
+	int recv_len, retlen;
+	uint8_t buf[BUFFER_LENGTH];
+	uint64_t timestamp;
 	struct sockaddr_in remote;
 	unsigned int s_size = sizeof(remote);
 
 	while(1) {
-		fflush(stdout);
-		memset(buf, '\0', BUFFER_LENGTH);
+		memset((char*)buf, 0, BUFFER_LENGTH);
+		memset((char*)&mavmsg, 0, sizeof(mavmsg));
+		memset((char*)&newmsg, 0, sizeof(newmsg));
+		memset((char*)&status, 0, sizeof(status));
 
 		printf("Waiting for datagrams..\n");
 		/* Receive data, this is a blocking call */
-		if ((recv_len = recvfrom(sock, buf, BUFFER_LENGTH, 0, (struct sockaddr *)&remote, &s_size)) == -1) {
-			perror("recvfrom failed from echoMessages(int)");
-		}
+		if ((recv_len = recvfrom(sock, buf, BUFFER_LENGTH, 0, (struct sockaddr *)&remote, &s_size)) < 0) {
+			fprintf(stderr, "recvfrom failed from serverRoutine(int)");
+		} else {
+			/* Parse packet */
+			for (i=0; i<recv_len; i++) {
+				if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &mavmsg, &status)) {
+					if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
+						/* Indicate packet is received */
+						fprintf(stdout, "%d bytes received(%s:%d)\n",
+								(int)recv_len, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lu, timestamp_echo: %lu\n",
+								mavlink_msg_test_frame_get_sequence(&mavmsg),
+								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
-		/* Print datagram details */
-		printf("Received packet from %s:%d\n", inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
-		printf("Data: %s\n", buf);
+						/* Get current timestamp */
+						gettimeofday(&tv, NULL);
+						timestamp = ((uint64_t)(tv.tv_sec) * 1000) +
+							((uint64_t)(tv.tv_usec) / 1000);
 
-		/* Echo back */
-		if (sendto(sock, buf, recv_len, 0, (struct sockaddr *)&remote, s_size) == -1) {
-			perror("sendto() failed");
+						/* Reset buffer */
+						memset((char*)buf, 0, BUFFER_LENGTH);
+
+						/* Repack message with timestamp */
+						mavlink_msg_test_frame_pack(1, 200, &newmsg, 
+								mavlink_msg_test_frame_get_sequence(&mavmsg),
+								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+								timestamp);
+						retlen = mavlink_msg_to_send_buffer(buf, &mavmsg);
+
+						// TODO: DEBUG
+						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lu, timestamp_echo: %lu\n",
+								mavlink_msg_test_frame_get_sequence(&newmsg),
+								mavlink_msg_test_frame_get_timestamp_sender(&newmsg),
+								mavlink_msg_test_frame_get_timestamp_echo(&newmsg));
+
+						/* Echo back */
+						if (sendto(sock, buf, retlen, 0, (struct sockaddr *)&remote, s_size) == -1) {
+							perror("sendto() failed");
+						}
+					}
+				}
+			}
 		}
 	}
 }

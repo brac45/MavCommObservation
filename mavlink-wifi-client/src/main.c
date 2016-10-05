@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-//#include <time.h>
+#include <time.h>
 
 /* This assumes you have the mavlink headers on your include path
 	 or in the same folder as this source file */
@@ -89,9 +89,6 @@ int main(int argc, char* argv[]) {
 }
 
 void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
-	/* Timers */
-	clock_t timer;
-	double time_taken;
 	/* MAVLink message variables */
 	mavlink_message_t mavmsg;
 	mavlink_status_t status;
@@ -100,12 +97,13 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 	int bytes_sent;
 	int i, len;
 	/* Time variables */
-	struct timeval timestamp;
+	struct timeval tv;
+	uint64_t timestamp_echo = 0, timestamp_cur = 0, 
+					 time_taken, uplink_time, downlink_time;
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
-	
 	unsigned int s_size = sizeof(*remote);
-	int seq_num = 1;
+	uint32_t seq_num = 1;
 
 	/* Main loop */
 	while(1) {
@@ -114,57 +112,67 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 		memset((char*)&status, 0, sizeof(status));
 		memset((char*)buf, '\0', sizeof(uint8_t) * BUFFER_LENGTH);
 
-		/* Set mavlink message : TEST_FRAME */
-		mavlink_msg_heartbeat_pack(1, 200, &mavmsg, 
-				MAV_TYPE_HELICOPTER, 
-				MAV_AUTOPILOT_GENERIC, 
-				MAV_MODE_GUIDED_ARMED, 0, MAV_STATE_ACTIVE);
-		len = mavlink_msg_to_send_buffer(buf, &mavmsg);
+		/* Get timestamp (milliseconds from epoch) */
+		gettimeofday(&tv, NULL);
+		timestamp_cur = ((uint64_t)(tv.tv_sec) * 1000) 
+			+ ((uint64_t)(tv.tv_usec) / 1000);
 
-		/* Send the message 
-		 * Measure round trip time */
+		/* Pack mavlink message */
+		mavlink_msg_test_frame_pack(1, 200, &mavmsg,
+				seq_num, timestamp_cur, timestamp_echo);
+		len = mavlink_msg_to_send_buffer(buf, &mavmsg);
+		seq_num++;
+
+		/* Send the message */
 		if ((bytes_sent = sendto(fd, buf, len, 0, (struct sockaddr *)remote, s_size)) == -1) {
 			perror("Unable to send");
 		}
-		timer = clock();
 
-		/* Receive a reply and print it */
+		/* Reset buffers and variables */
 		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LENGTH);
+		memset((char*)&mavmsg, 0, sizeof(mavmsg));
+		memset((char*)&status, 0, sizeof(status));
+
+		/* Receive a datagram */
 		if ((recvsize = recvfrom(fd, buf, BUFFER_LENGTH, 0, (struct sockaddr *)remote, &s_size)) < 0) {
 			fprintf(stderr, "Unable to receive\n");
 		} else {
-			/* Zero-out mavmsg and status */
-			memset((char*)&mavmsg, 0, sizeof(mavmsg));
-			memset((char*)&status, 0, sizeof(status));
-
 			/* Parse packet */
 			for (i = 0; i < recvsize; i++) {
 				if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &mavmsg, &status)) {
-					/* Stop timer */
-					timer = clock() - timer;
-					time_taken = ((double)timer) / CLOCKS_PER_SEC; // in seconds
-					time_taken = time_taken * 1000; // in milliseconds 
+					if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
+						/* Get measured rtt, uplink and downlink time */
+						gettimeofday(&tv, NULL);
+						timestamp_cur = ((uint64_t)(tv.tv_sec) * 1000) 
+							+ ((uint64_t)(tv.tv_usec) / 1000);
+						time_taken = timestamp_cur - 
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg);
+						uplink_time = mavlink_msg_test_frame_get_timestamp_echo(&mavmsg) -
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg);
+						downlink_time = timestamp_cur - 
+							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg);
 
-					/* Get local time */
-					time_var = time(NULL);
-					time_struct = *localtime(&time_var);
+						/* Get local time */
+						time_var = time(NULL);
+						time_struct = *localtime(&time_var);
 
-					/* Indicate packet is received */
-					fprintf(stdout, "%d:%d:%d %d bytes from MAV(%s:%d): seq=%d rtt=%lfms\n",
-							time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, (int)recvsize,
-							inet_ntoa(remote->sin_addr), ntohs(remote->sin_port),
-							seq_num, time_taken);
-					fprintf(stdout, "Received packet: SYS: %d, COMP: %d, LEN: %d, MSG ID: %d\n", mavmsg.sysid, mavmsg.compid, mavmsg.len, mavmsg.msgid);
-				} else if (i == (recvsize-1)){
-					/* Broken packet */
-					fprintf(stdout, "%d:%d:%d Broken packet(Invalid checksum)\n", time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec);
-				}
+						/* Indicate packet is received */
+						fprintf(stdout, "%d:%d:%d %d bytes from MAV(%s:%d)\n",
+								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
+								(int)recvsize, inet_ntoa(remote->sin_addr), ntohs(remote->sin_port));
+						fprintf(stdout, "seq_num: %u rtt: %lu, ut: %lums, dt: %lums\n",
+								mavlink_msg_test_frame_get_sequence(&mavmsg),
+								time_taken, uplink_time, downlink_time);
+						fprintf(stdout, "[DEBUG] timestamp_sender: %lu, timestamp_echo: %lu\n",
+								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
+
+						/* sleep for a second */
+						sleep(1);
+					}
+				} 
 			}
-			seq_num++;
 		}
-
-		fflush(stdout);
-		sleep(1);
 	}
 }
 
