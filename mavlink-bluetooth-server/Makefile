@@ -14,23 +14,25 @@ SRCDIR := src
 BIN := bin
 TARGET := $(BIN)/bluetooth-server.out
 
-# File extensions and some more options
+# Source files
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
-LIB := -lbluetooth
-INCLUDE := -I ../message-headers/common
+
+# Common headers
+MAVMSG := -I ../common-headers/testing -I ../common-headers/common
+DBINC := -I ../common-headers/database
+
+# Libraries
+SQLITE := -lsqlite3
+BLUETOOTH := -lbluetooth
 
 # =========== Build procedure ========
-$(TARGET): 
-	@echo "Building bluetooth client.."
-	$(CC) $(INCLUDE) -o $(TARGET) $(SOURCES) $(LIB)
+$(TARGET):
+	@echo "Compiling bluetooth server.."
+	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(BLUETOOTH) $(SQLITE)
 
 clean:
 	@echo "Cleaning.."
-	rm -vf bin/* 
-
-# TESTS
-test:
-	$(CC) $(CFLAGS) test/tester.cpp $(INCLUDE) $(LIBRARY) -o bin/tester
+	rm -vf $(TARGET)
 
 .PHONY: clean

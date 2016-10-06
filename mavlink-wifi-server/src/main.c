@@ -4,7 +4,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
-#include <sqlite3.h>
 
 /* This assumes you have the mavlink headers on your include path
 	 or in the same folder as this source file */
@@ -16,34 +15,17 @@
 #define UDP 98
 #define UNDEFINED 999
 
-/* Globals(database specific) */
-char		session_id[12];
-char		db_path[50];
-sqlite3 *db;
-
 /* Echo messages */
 void serverRoutine(int sock);
 /* Parse args 
  * @args int		argc
  *       char** argv
- *       char*	db_path
- *       char*	session_id
  *       int*	  protocol
  *       int*		port_num
  * @return 1 if successful, 0 if not */
-int parseArgs(int, char**, char*, char*, int*, int*);
+int parseArgs(int, char**, int*, int*);
 /* Show usage */
 void usage();
-/* callback function from sqlite3 c api */
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-	int i = 0;
-	for (i=0; i<argc; i++) {
-		fprintf(stdout, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-	}
-	fprintf(stdout, "\n");
-	return 0;
-}
-
 
 /* Main function */
 int main(int argc, char* argv[]) {
@@ -54,7 +36,7 @@ int main(int argc, char* argv[]) {
 	int protocol = UNDEFINED;
 
 	/* Parse arguments */
-	if (!parseArgs(argc, argv, db_path, session_id, &protocol, &port_num)) {
+	if (!parseArgs(argc, argv, &protocol, &port_num)) {
 		usage();
 		exit(1);
 	}
@@ -150,33 +132,26 @@ void serverRoutine(int sock) {
 	}
 }
 
-int parseArgs(int argc, char** argv, 
-		char* db_path, char* session_id, int* protocol, int* port_num) {
+int parseArgs(int argc, char** argv, int* protocol, int* port_num) {
 	/* TCP or UDP */
-	if (argc == 6) {
+	if (argc == 3) {
 		/* db path */
-		strcpy(db_path, argv[1]);
+		//strcpy(db_path, argv[1]);
 
 		/* session id */
-		strcpy(session_id, argv[2]);
+		//strcpy(session_id, argv[2]);
 
 		/* TCP or UDP */
-		if (strcmp("-t", argv[3]) == 0) {
+		if (strcmp("-t", argv[1]) == 0) {
 			*protocol = TCP;
-		} else if (strcmp("-u", argv[3]) == 0) {
+		} else if (strcmp("-u", argv[1]) == 0) {
 			*protocol = UDP;
 		} else {
 			return 0;
 		}
 
 		/* Port number*/
-		if (strcmp("--port", argv[4]) == 0) {
-			*port_num = atoi(argv[5]);
-			return 1;
-		} else {
-			printf("[DEBUG] incorrect argv[2]\n");
-			return 0;
-		}
+		*port_num = atoi(argv[2]);
 	} else {
 		printf("[DEBUG] incorrect number of args\n");
 		/* Incorrect number of args */
@@ -186,7 +161,7 @@ int parseArgs(int argc, char** argv,
 
 void usage() {
 	fprintf(stdout, "usage..\n");
-	fprintf(stdout, "./$(PROGRAM) [db path] [session_id] [-t | -u] [--port PORT]\n");
+	fprintf(stdout, "./$(PROGRAM) [-t | -u] [PORT]\n");
 	fprintf(stdout, "		-t | -u : tcp or udp protocol (only one may be used)\n");
-	fprintf(stdout, "		--port : port number to be listened to\n");
+	fprintf(stdout, "		PORT : port number to be listened to\n");
 }

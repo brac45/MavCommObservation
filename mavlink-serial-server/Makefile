@@ -11,29 +11,27 @@ CFLAGS := -g -Wall
 
 #	Directory and main executable variable
 SRCDIR := src
-BUILDDIR := build
 BIN := bin
 TARGET := $(BIN)/serial-server.out
 
-# File extensions and some more options
+# Source files
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
-OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../message-headers/common
-SQLITE := -l sqlite3
+
+# Common headers
+MAVMSG := -I ../common-headers/testing -I ../common-headers/common
+DBINC := -I ../common-headers/database
+
+# libraries
+SQLITE := -lsqlite3
 
 # =========== Build procedure ========
-$(TARGET): $(OBJECTS)
-	@echo "Linking.."
-	$(CC) $^ -o $(TARGET) $(SQLITE)
-
-$(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
-	@echo "Creating Objects.."
-	$(CC) $(CFLAGS) $(LIB) -c -o $@ $<
+$(TARGET):
+	@echo "Compiling serial server.."
+	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(SQLITE)
 
 clean:
 	@echo "Cleaning.."
-	rm -vf "$(TARGET)"
-	find $(BUILDDIR) -name "*.o" -exec rm -rvf {} \;
+	rm -vf $(TARGET)
 
 .PHONY: clean

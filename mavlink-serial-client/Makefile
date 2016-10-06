@@ -11,33 +11,34 @@ CFLAGS := -g -Wall
 
 #	Directory and main executable variable
 SRCDIR := src
-BUILDDIR := build
 BIN := bin
 TEST := test
 TARGET := $(BIN)/serial-client.out
 TESTTRGT := $(BIN)/test.out
 
-# File extensions and some more options
+# Source files
 SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
+
+# Source files for testing program
 TESTSRCS := $(shell find $(TEST) -type f -name *.$(SRCEXT))
-OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
-LIB := -I ../message-headers/common
-SQLITE := -l sqlite3
+
+# Common headers
+MAVMSG := -I ../common-headers/common -I ../common-headers/testing
+DBINC := -I ../common-headers/database
+
+# libraries
+SQLITE := -lsqlite3
 
 # =========== Build procedure ========
-$(TARGET): $(OBJECTS)
-	@echo "Linking.."
-	$(CC) $^ -o $(TARGET) $(SQLITE)
-
-$(BUILDDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
-	@echo "Creating Objects.."
-	$(CC) $(CFLAGS) $(LIB) -c -o $@ $<
+$(TARGET): 
+	@echo "Compiling serial client.."
+	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(SQLITE)
 
 clean:
 	@echo "Cleaning.."
-	rm -vf $(BIN)/*
-	find $(BUILDDIR) -name "*.o" -exec rm -rvf {} \;
+	rm -vf $(TARGET)
+	rm -vf $(TESTTRGT)
 
 testing:
 	@echo "Creating test code.."

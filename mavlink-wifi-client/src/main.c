@@ -10,12 +10,19 @@
 /* This assumes you have the mavlink headers on your include path
 	 or in the same folder as this source file */
 #include <mavlink.h>
+/* Database library */
+#include <sqlite3.h>
 
 /* Constants */
 #define BUFFER_LENGTH 2041 
 #define TCP 99
 #define UDP 98
 #define UNDEFINED 999
+
+/* Globals(database specific) */
+char		session_id[12];
+char		db_path[50];
+sqlite3 *db;
 
 /* Start sending messages using UDP
  * @args int		file descriptor
@@ -35,6 +42,15 @@ void sendMessagesTCP(int, struct sockaddr_in*);
 int parseArgs(int, char**, int*, char*, int*);
 /* Show usage */
 void usage();
+/* callback function from sqlite3 c api */
+static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+	int i = 0;
+	for (i=0; i<argc; i++) {
+		fprintf(stdout, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	}
+	fprintf(stdout, "\n");
+	return 0;
+}
 
 /* Main function */
 int main(int argc, char* argv[]) {
@@ -168,7 +184,9 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
 								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
-						/* sleep for a second */
+						/* Save data to database */
+
+						/* Sleep for a second */
 						sleep(1);
 					}
 				} 
@@ -180,30 +198,27 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 int parseArgs(int argc, char** argv, int* protocol, char* target_ip, int* port_num) {
 	/* TCP or UDP */
 	if (argc == 6) {
+		/* db path */
+		strcpy(db_path, argv[1]);
+
+		/* session id */
+		strcpy(session_id, argv[2]);
+
 		/* TCP or UDP */
-		if (strcmp("-t", argv[1]) == 0) {
+		if (strcmp("-t", argv[3]) == 0) {
 			*protocol = TCP;
-		} else if (strcmp("-u", argv[1]) == 0) {
+		} else if (strcmp("-u", argv[3]) == 0) {
 			*protocol = UDP;
 		} else {
 			return 0;
 		}
 
-		/* IP address */
-		if (strcmp("--addr", argv[2]) == 0) {
-			strcpy(target_ip, argv[3]);
-		} else {
-			return 0;
-		}
+		/* Address */
+		strcpy(target_ip, argv[4]);
 
-		/* Port number*/
-		if (strcmp("--port", argv[4]) == 0) {
-			*port_num = atoi(argv[5]);
-			return 1;
-		} else {
-			printf("[DEBUG] incorrect argv[4]\n");
-			return 0;
-		}
+		/* Port number */
+		*port_num = atoi(argv[5]);
+		return 1;
 	} else {
 		printf("[DEBUG] incorrect number of args\n");
 		/* Incorrect number of args */
@@ -213,8 +228,8 @@ int parseArgs(int argc, char** argv, int* protocol, char* target_ip, int* port_n
 
 void usage() {
 	fprintf(stdout, "usage..\n");
-	fprintf(stdout, "./$(PROGRAM) [-t | -u] [--addr ADDRESS] [--port PORT]\n");
+	fprintf(stdout, "./$(PROGRAM) [db path] [session_id] [-t | -u] [ADDRESS] [PORT]\n");
 	fprintf(stdout, "		-t | -u : tcp or udp protocol (only one may be used)\n");
-	fprintf(stdout, "		--addr : ipv4 address of the target\n");
-	fprintf(stdout, "		--port : port number of the target\n");
+	fprintf(stdout, "		ADDRESS : ipv4 address of the target\n");
+	fprintf(stdout, "		PORT : port number of the target\n");
 }
