@@ -26,7 +26,8 @@ DBINC := -I ../common-headers/database
 SQLITE := -lsqlite3
 
 # =========== Build procedure ========
-$(TARGET):
+#
+all:
 	@echo "Compiling wifi server.."
 	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(SQLITE)
 

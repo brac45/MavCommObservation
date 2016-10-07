@@ -152,6 +152,7 @@ int parseArgs(int argc, char** argv, int* protocol, int* port_num) {
 
 		/* Port number*/
 		*port_num = atoi(argv[2]);
+		return 1;
 	} else {
 		printf("[DEBUG] incorrect number of args\n");
 		/* Incorrect number of args */

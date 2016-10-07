@@ -6,23 +6,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <time.h>
+#include "dbfunctions.h"
 
 /* This assumes you have the mavlink headers on your include path
 	 or in the same folder as this source file */
 #include <mavlink.h>
-/* Database library */
-#include <sqlite3.h>
 
 /* Constants */
 #define BUFFER_LENGTH 2041 
 #define TCP 99
 #define UDP 98
 #define UNDEFINED 999
-
-/* Globals(database specific) */
-char		session_id[12];
-char		db_path[50];
-sqlite3 *db;
 
 /* Start sending messages using UDP
  * @args int		file descriptor
@@ -42,15 +36,6 @@ void sendMessagesTCP(int, struct sockaddr_in*);
 int parseArgs(int, char**, int*, char*, int*);
 /* Show usage */
 void usage();
-/* callback function from sqlite3 c api */
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-	int i = 0;
-	for (i=0; i<argc; i++) {
-		fprintf(stdout, "%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-	}
-	fprintf(stdout, "\n");
-	return 0;
-}
 
 /* Main function */
 int main(int argc, char* argv[]) {
@@ -62,11 +47,19 @@ int main(int argc, char* argv[]) {
 	/* Time variables */
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
+	struct timeval timeout;
 
 	/* Parse arguments */
 	if (!parseArgs(argc, argv, &protocol, target_ip, &port_num)) {
 		usage();
 		exit(1);
+	}
+
+	/* Open database file */
+	if (sqlite3_open(database_file, &db)) {
+		fprintf(stderr, "Unable to open %s %s\n", database_file, sqlite3_errmsg(db));
+	} else {
+		fprintf(stdout, "Opened DB %s\n", database_file);
 	}
 
 	/* Display input arguments */
@@ -88,6 +81,13 @@ int main(int argc, char* argv[]) {
 	if (inet_aton(target_ip, &remote.sin_addr) == 0) {
 		perror("inet_aton() failed");
 		exit(1);
+	}
+
+	/* Set socket options for 5 second timeout */
+	timeout.tv_sec = 5;
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, 
+			(struct timeval *)&timeout, sizeof(struct timeval)) < 0) {
+		fprintf(stderr, "Error in setsockopt\n");
 	}
 
 	/* Start test */
@@ -152,7 +152,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 
 		/* Receive a datagram */
 		if ((recvsize = recvfrom(fd, buf, BUFFER_LENGTH, 0, (struct sockaddr *)remote, &s_size)) < 0) {
-			fprintf(stderr, "Unable to receive\n");
+			fprintf(stderr, "Unable to receive sequence %d\n", seq_num - 1);
 		} else {
 			/* Parse packet */
 			for (i = 0; i < recvsize; i++) {
@@ -185,6 +185,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
 						/* Save data to database */
+						savePersistantData(mavmsg, buf, &time_struct, (int)recvsize, 
+								time_taken, uplink_time, downlink_time);
 
 						/* Sleep for a second */
 						sleep(1);
@@ -199,7 +201,7 @@ int parseArgs(int argc, char** argv, int* protocol, char* target_ip, int* port_n
 	/* TCP or UDP */
 	if (argc == 6) {
 		/* db path */
-		strcpy(db_path, argv[1]);
+		strcpy(database_file, argv[1]);
 
 		/* session id */
 		strcpy(session_id, argv[2]);

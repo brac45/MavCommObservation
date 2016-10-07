@@ -2,6 +2,7 @@
 #define _DBFUNCTIONS_H_
 
 #include <sqlite3.h>
+#include <mavlink.h>
 
 #define BUFFER_LEN 2041
 
@@ -22,7 +23,7 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 
 /* Save mavlink messages to sqlite3 database */
 void savePersistantData(mavlink_message_t mavmsg, uint8_t* mavframe, 
-		struct tm * timeinfo, int msg_size, double rtt, double uplink_time, 
+		const struct tm * timeinfo, int msg_size, double rtt, double uplink_time, 
 		double downlink_time) {
 	char insert_query[BUFFER_LEN];
 	int i;

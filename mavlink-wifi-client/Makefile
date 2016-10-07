@@ -26,7 +26,10 @@ DBINC := -I ../common-headers/database
 SQLITE := -lsqlite3
 
 # =========== Build procedure ========
-$(TARGET):
+#
+.PHONY: clean
+
+all:
 	@echo "Compiling wifi client.."
 	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(SQLITE)
 
@@ -34,4 +37,3 @@ clean:
 	@echo "Cleaning.."
 	rm -vf $(TARGET)
 
-.PHONY: clean
