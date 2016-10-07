@@ -31,7 +31,7 @@ serial:
 wifi:
 	@echo "Compiling wifi project.."
 	$(MAKE) -C $(WIFI_CLIENT_DIR)
-	#$(MAKE) -C $(WIFI_SERVER_DIR)
+	$(MAKE) -C $(WIFI_SERVER_DIR)
 
 bluetooth:
 	@echo "Compiling bluetooth project"

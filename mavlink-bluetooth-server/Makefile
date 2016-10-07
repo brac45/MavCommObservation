@@ -19,7 +19,7 @@ SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 
 # Common headers
-MAVMSG := -I ../common-headers/testing -I ../common-headers/common
+MAVMSG := -I ../common-headers/testing
 DBINC := -I ../common-headers/database
 
 # Libraries
@@ -27,7 +27,7 @@ SQLITE := -lsqlite3
 BLUETOOTH := -lbluetooth
 
 # =========== Build procedure ========
-$(TARGET):
+all:
 	@echo "Compiling bluetooth server.."
 	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(BLUETOOTH) $(SQLITE)
 

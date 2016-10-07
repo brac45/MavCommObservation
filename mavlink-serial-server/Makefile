@@ -19,14 +19,14 @@ SRCEXT := c
 SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 
 # Common headers
-MAVMSG := -I ../common-headers/testing -I ../common-headers/common
+MAVMSG := -I ../common-headers/testing
 DBINC := -I ../common-headers/database
 
 # libraries
 SQLITE := -lsqlite3
 
 # =========== Build procedure ========
-$(TARGET):
+all:
 	@echo "Compiling serial server.."
 	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(SQLITE)
 

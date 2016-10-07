@@ -24,14 +24,14 @@ SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
 TESTSRCS := $(shell find $(TEST) -type f -name *.$(SRCEXT))
 
 # Common headers
-MAVMSG := -I ../common-headers/common -I ../common-headers/testing
+MAVMSG := -I ../common-headers/testing
 DBINC := -I ../common-headers/database
 
 # libraries
 SQLITE := -lsqlite3
 
 # =========== Build procedure ========
-$(TARGET): 
+all: 
 	@echo "Compiling serial client.."
 	$(CC) $(CFLAGS) $(MAVMSG) $(DBINC) $(SOURCES) -o $(TARGET) $(SQLITE)
 

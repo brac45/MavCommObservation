@@ -44,6 +44,7 @@ int main(int argc, char* argv[]) {
 	int port_num = 0;
 	int protocol = UNDEFINED;
 	int fd;
+	int opt = 1;
 	/* Time variables */
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
@@ -58,6 +59,7 @@ int main(int argc, char* argv[]) {
 	/* Open database file */
 	if (sqlite3_open(database_file, &db)) {
 		fprintf(stderr, "Unable to open %s %s\n", database_file, sqlite3_errmsg(db));
+		exit(1);
 	} else {
 		fprintf(stdout, "Opened DB %s\n", database_file);
 	}
@@ -86,8 +88,15 @@ int main(int argc, char* argv[]) {
 	/* Set socket options for 5 second timeout */
 	timeout.tv_sec = 5;
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, 
-			(struct timeval *)&timeout, sizeof(struct timeval)) < 0) {
-		fprintf(stderr, "Error in setsockopt\n");
+				(struct timeval *)&timeout, sizeof(struct timeval)) < 0) {
+		fprintf(stderr, "Error in SO_RCVTIMEO\n");
+		exit(1);
+	}
+
+	/* Set socket options for port reuse */
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
+		fprintf(stderr, "Error in SO_REUSEPORT\n");
+		exit(1);
 	}
 
 	/* Start test */
@@ -153,6 +162,14 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 		/* Receive a datagram */
 		if ((recvsize = recvfrom(fd, buf, BUFFER_LENGTH, 0, (struct sockaddr *)remote, &s_size)) < 0) {
 			fprintf(stderr, "Unable to receive sequence %d\n", seq_num - 1);
+			/* Pack mavlink message */
+			mavlink_msg_test_frame_pack(1, 200, &mavmsg,
+					seq_num - 1, -99.9, -99.9);
+			len = mavlink_msg_to_send_buffer(buf, &mavmsg);
+			/* Get local time */
+			time_var = time(NULL);
+			time_struct = *localtime(&time_var);
+			savePersistantData(mavmsg, buf, &time_struct, len, -99.9, -99.9, -99.9);
 		} else {
 			/* Parse packet */
 			for (i = 0; i < recvsize; i++) {

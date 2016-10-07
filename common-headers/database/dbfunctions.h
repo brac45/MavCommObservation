@@ -39,7 +39,9 @@ void savePersistantData(mavlink_message_t mavmsg, uint8_t* mavframe,
 		strcat(buf, buf_t);
 	}
 	strftime(timebuf, 20, "%X", timeinfo);
-	snprintf(insert_query, BUFFER_LEN, "INSERT INTO records (session_id, frame_seq, frame_contents, time_sent, msg_size, rtt, uplink_time, downlink_time) VALUES ( '%s', %d, '%s', '%s', %d, %lf, %lf, %lf );", session_id, mavmsg.seq, buf, timebuf, msg_size, rtt, uplink_time, downlink_time);
+	snprintf(insert_query, BUFFER_LEN, "INSERT INTO records (session_id, frame_seq, frame_contents, time_sent, msg_size, rtt, uplink_time, downlink_time) VALUES ( '%s', %d, '%s', '%s', %d, %lf, %lf, %lf );", 
+			session_id, mavlink_msg_test_frame_get_sequence(&mavmsg), 
+			buf, timebuf, msg_size, rtt, uplink_time, downlink_time);
 
 	/* Execute SQL insert statement */
 	if (sqlite3_exec(db, insert_query, callback, 0, &err_msg) != SQLITE_OK) {
