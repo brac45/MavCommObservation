@@ -117,6 +117,15 @@ start_wifi () {
 }
 
 start_bluetooth () {
-	return
+	case $1 in
+		"-c" )
+			echo "Bluetooth client starting.."
+			if [ -f "$BLUE_CLIENT/bin/$BLUE_EXE_C" ]; then
+				echo "Entering $BLUE_CLIENT"
+				cd $BLUE_CLIENT
+				./bin/$BLUE_EXE_C ../$DB_FILE
+			else
+			fi
+	esac
 }
 

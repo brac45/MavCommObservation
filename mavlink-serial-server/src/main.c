@@ -95,7 +95,7 @@ void signal_handler(int sign) {
 }
 
 void serverRoutine() {
-	uint32_t bytes_read, bytes_sent, len, i=0;
+	uint32_t bytes_read, bytes_sent, len;
 	mavlink_message_t mavmsg, newmsg;
 	mavlink_status_t status;
 	uint8_t buf[BUFFER_LEN];
@@ -112,7 +112,6 @@ void serverRoutine() {
 	/* Main loop */
 	while(1) {
 		/* Reset buffers and variables */
-		i=0;
 		bytes_read = 0;
 		temp = 0;
 		memset((char*)&status, 0, sizeof(status));
@@ -123,24 +122,20 @@ void serverRoutine() {
 		/* Start reading bytes when min charater is received */
 		while ((len = read(fd, &temp, 1)) > 0) {
 			bytes_read += len;
-			buf[i++] = temp;
 			/* Parse packet */
 			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &status)) {
 				if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
+					/* Get current timestamp */
+					gettimeofday(&tv, NULL);
+					timestamp = ((double)(tv.tv_sec) * 1000)
+						+ ((double)(tv.tv_usec) / 1000);
+
 					/* Indicate frame is received */
 					fprintf(stdout, "%d bytes received\n", bytes_read);
 					fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lf, timestamp_echo: %lf\n",
 							mavlink_msg_test_frame_get_sequence(&mavmsg),
 							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
 							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
-
-					/* Get current timestamp */
-					gettimeofday(&tv, NULL);
-					timestamp = ((double)(tv.tv_sec) * 1000)
-						+ ((double)(tv.tv_usec) / 1000);
-
-					/* Reset buffer for repacking message */
-					memset((char*)buf, 0, BUFFER_LEN);
 
 					/* Repack message with timestamp */
 					mavlink_msg_test_frame_pack(1, 200, &newmsg, 

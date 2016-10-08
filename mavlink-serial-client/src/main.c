@@ -14,7 +14,6 @@
 
 /* Serial port settings */
 #define BAUDRATE B57600
-#define BUFFER_LEN 2041
 
 /* Globals(termios specific) */
 struct termios	oldtio, newtio;
@@ -70,7 +69,7 @@ int main(int argc, char **argv) {
 	 * VMIN			= blocking read until min char recv */
 	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
 	newtio.c_lflag = 0;
-	newtio.c_cc[VTIME] = 3;		// timer for 10 seconds
+	newtio.c_cc[VTIME] = 50;		// timer for 5 seconds
 	newtio.c_cc[VMIN] = 0;		// min 1 character
 
 	/* Flush modem */
@@ -109,15 +108,11 @@ void signal_handler(int sign) {
 }
 
 void sendMessages() {
-	/* len	: function return values */
 	int bytes_read, bytes_sent, len, i = 0;
 	uint32_t seq_num = 1;
-	/* mavlink variables */
 	mavlink_message_t mavmsg;
 	mavlink_status_t status;
-	/* buf	: sending buffer 
-	 * temp	: temporary uint8_t value */
-	uint8_t buf[BUFFER_LEN];
+	uint8_t buf[BUFFER_LEN], recvbuf[BUFFER_LEN];
 	uint8_t temp;
 	/* Timers and time */
 	struct timeval tv;
@@ -139,7 +134,8 @@ void sendMessages() {
 		temp = 0;
 		memset((char*)&status, 0, sizeof(status));
 		memset((char*)&mavmsg, 0, sizeof(mavmsg));
-		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);		// mavmsg buffer
+		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
+		memset((char*)recvbuf, 0, sizeof(uint8_t) * BUFFER_LEN);
 
 		/* Get timestamp (milliseconds from epoch) */
 		gettimeofday(&tv, NULL);
@@ -158,14 +154,9 @@ void sendMessages() {
 			exit(1);
 		} 
 
-		/* Reset buffers and variables */
-		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
-		memset((char*)&mavmsg, 0, sizeof(mavmsg));
-		memset((char*)&status, 0, sizeof(status));
-
 		/* Try to read bytes from radio */ 
 		while ((len = read(fd, &temp, 1)) > 0) {
-			buf[i++] = temp;
+			recvbuf[i++] = temp;
 			bytes_read += len;
 			/* Parse packet */
 			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &status)) {
@@ -174,6 +165,7 @@ void sendMessages() {
 					gettimeofday(&tv, NULL);
 					timestamp_cur = ((double)(tv.tv_sec) * 1000) 
 						+ ((double)(tv.tv_usec) / 1000);
+
 					time_taken = timestamp_cur - 
 						mavlink_msg_test_frame_get_timestamp_sender(&mavmsg);
 					uplink_time = mavlink_msg_test_frame_get_timestamp_echo(&mavmsg) -
@@ -197,7 +189,7 @@ void sendMessages() {
 							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
 					/* Save data */
-					savePersistantData(mavmsg, buf, &time_struct, bytes_read, 
+					savePersistantData(mavmsg, recvbuf, &time_struct, bytes_read, 
 							time_taken, uplink_time, downlink_time);
 
 					/* Wait 1 second and break from read loop */

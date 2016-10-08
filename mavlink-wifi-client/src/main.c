@@ -13,7 +13,6 @@
 #include <mavlink.h>
 
 /* Constants */
-#define BUFFER_LENGTH 2041 
 #define TCP 99
 #define UDP 98
 #define UNDEFINED 999
@@ -86,7 +85,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	/* Set socket options for 5 second timeout */
-	timeout.tv_sec = 10;
+	timeout.tv_sec = 5;
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, 
 				(struct timeval *)&timeout, sizeof(struct timeval)) < 0) {
 		fprintf(stderr, "Error in SO_RCVTIMEO\n");
@@ -117,7 +116,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 	/* MAVLink message variables */
 	mavlink_message_t mavmsg;
 	mavlink_status_t status;
-	uint8_t buf[BUFFER_LENGTH];
+	uint8_t buf[BUFFER_LEN], recvbuf[BUFFER_LEN];
 	ssize_t recvsize;
 	int bytes_sent;
 	int i, len;
@@ -136,7 +135,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 		/* Reset buffers */
 		memset((char*)&mavmsg, 0, sizeof(mavmsg));
 		memset((char*)&status, 0, sizeof(status));
-		memset((char*)buf, '\0', sizeof(uint8_t) * BUFFER_LENGTH);
+		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
+		memset((char*)recvbuf, 0, sizeof(uint8_t) * BUFFER_LEN);
 
 		/* Get timestamp (milliseconds from epoch) */
 		gettimeofday(&tv, NULL);
@@ -155,13 +155,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 			exit(1);
 		}
 
-		/* Reset buffers and variables */
-		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LENGTH);
-		memset((char*)&mavmsg, 0, sizeof(mavmsg));
-		memset((char*)&status, 0, sizeof(status));
-
 		/* Receive a datagram */
-		if ((recvsize = recvfrom(fd, buf, BUFFER_LENGTH, 0, (struct sockaddr *)remote, &s_size)) < 0) {
+		if ((recvsize = recvfrom(fd, recvbuf, BUFFER_LEN, 0, (struct sockaddr *)remote, &s_size)) < 0) {
 			fprintf(stderr, "Unable to receive sequence %u\n", seq_num - 1);
 			/* Pack dummy mavlink message */
 			mavlink_msg_test_frame_pack(1, 200, &mavmsg,
@@ -174,7 +169,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 		} else {
 			/* Parse packet */
 			for (i = 0; i < recvsize; i++) {
-				if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &mavmsg, &status)) {
+				if (mavlink_parse_char(MAVLINK_COMM_0, recvbuf[i], &mavmsg, &status)) {
 					if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
 						/* Get measured rtt, uplink and downlink time */
 						gettimeofday(&tv, NULL);
@@ -203,7 +198,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
 						/* Save data to database */
-						savePersistantData(mavmsg, buf, &time_struct, (int)recvsize, 
+						savePersistantData(mavmsg, recvbuf, &time_struct, (int)recvsize, 
 								time_taken, uplink_time, downlink_time);
 
 						/* Sleep for a second */
