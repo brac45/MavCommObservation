@@ -125,7 +125,19 @@ start_bluetooth () {
 				cd $BLUE_CLIENT
 				./bin/$BLUE_EXE_C ../$DB_FILE
 			else
+				echo "Please compile $BLUE_EXE_C in $BLUE_CLIENT"
 			fi
+			;;
+		"-s" )
+			echo "Bluetooth server starting.."
+			if [ -f "$BLUE_SERVER/bin/$BLUE_EXE_S" ]; then
+				echo "Entering $BLUE_SERVER"
+				cd $BLUE_SERVER
+				./bin/$BLUE_EXE_S
+			else
+				echo "Please compile $BLUE_EXE_S in $BLUE_SERVER"
+			fi
+			;;
 	esac
 }
 

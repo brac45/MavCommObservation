@@ -1,0 +1,11 @@
+# Ignore outputs
+mavlink-bluetooth-client/bin/*
+mavlink-bluetooth-server/bin/*
+mavlink-serial-client/bin/*
+mavlink-serial-server/bin/*
+mavlink-wifi-client/bin/*
+mavlink-wifi-server/bin/*
+
+# Ignore database
+database.db
+dbreader.sh
