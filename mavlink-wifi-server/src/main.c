@@ -115,7 +115,7 @@ void serverRoutine(int sock) {
 								timestamp);
 						retlen = mavlink_msg_to_send_buffer(buf, &newmsg);
 
-						// TODO: DEBUG
+						/* Debug string */
 						fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lf, timestamp_echo: %lf\n",
 								mavlink_msg_test_frame_get_sequence(&newmsg),
 								mavlink_msg_test_frame_get_timestamp_sender(&newmsg),

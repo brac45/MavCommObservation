@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/signal.h>
+#include <sys/time.h>
 #include <termios.h>
 #include <stdint.h>
 #include <time.h>
@@ -15,9 +16,6 @@
 /* Serial port settings */
 #define BAUDRATE B57600
 #define BUFFER_LEN 2041
-
-#define TRUE 1
-#define FALSE 0
 
 /* Globals */
 struct termios	oldtio, newtio;
@@ -97,20 +95,13 @@ void signal_handler(int sign) {
 }
 
 void serverRoutine() {
-	/*
-	 * i		: iterator
-	 * len	: function return values */
-	int bytes_read, bytes_sent, len, i=0;
-	/* mavlink variables */
-	mavlink_message_t mavmsg;
-	mavlink_status_t mavstatus;
-	/*
-	 * buf	: receiving buffer 
-	 * temp	: temporary uint8_t value */
+	uint32_t bytes_read, bytes_sent, len, i=0;
+	mavlink_message_t mavmsg, newmsg;
+	mavlink_status_t status;
 	uint8_t buf[BUFFER_LEN];
 	uint8_t temp;
-	/* flags */
-	int should_reset_buffers = FALSE;
+	struct timeval tv;
+	double timestamp = 0.0;
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
 
@@ -119,80 +110,58 @@ void serverRoutine() {
 			time_struct.tm_year+1900, time_struct.tm_mon+1, time_struct.tm_mday);
 
 	/* Main loop */
-	while(TRUE) {
+	while(1) {
 		/* Reset buffers and variables */
-		should_reset_buffers = FALSE;
 		i=0;
 		bytes_read = 0;
 		temp = 0;
-		memset((char*)&mavstatus, 0, sizeof(mavstatus));
+		memset((char*)&status, 0, sizeof(status));
 		memset((char*)&mavmsg, 0, sizeof(mavmsg));
+		memset((char*)&newmsg, 0, sizeof(newmsg));
 		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);		// Sending buffer
 
 		/* Start reading bytes when min charater is received */
 		while ((len = read(fd, &temp, 1)) > 0) {
 			bytes_read += len;
 			buf[i++] = temp;
-
 			/* Parse packet */
-			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &mavstatus)) {
-				/* Valid packet received */
-				switch (mavmsg.msgid) {
-					/* Heartbeat message */
-					case MAVLINK_MSG_ID_HEARTBEAT:
-						/* Get current date */
-						time_var = time(NULL);
-						time_struct = *localtime(&time_var);
+			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &status)) {
+				if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
+					/* Indicate frame is received */
+					fprintf(stdout, "%d bytes received\n", bytes_read);
+					fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lf, timestamp_echo: %lf\n",
+							mavlink_msg_test_frame_get_sequence(&mavmsg),
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
-						/* Indicate packet is received */
-						fprintf(stdout, "%d:%d:%d %d bytes from MAV(HEARTBEAT): seq=-999\n", 
-								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
-								bytes_read);
-						fprintf(stdout, "Received packet: SYS:%d, COMP:%d, LEN:%d, MSG ID:%d\n",
-								mavmsg.sysid, mavmsg.compid, mavmsg.len, mavmsg.msgid);
+					/* Get current timestamp */
+					gettimeofday(&tv, NULL);
+					timestamp = ((double)(tv.tv_sec) * 1000)
+						+ ((double)(tv.tv_usec) / 1000);
 
-						/* Echo back packet */
-						if ((bytes_sent = write(fd, buf, bytes_read)) < 0) {
-							fprintf(stderr, "Unable to send!\n");
-							// TODO: error handling: unable to write to modem
-						} else {
-							fprintf(stdout, "Resent message\n");
-							for (i=0; i<bytes_read; i++) {
-								fprintf(stdout, "%02X", (unsigned char)buf[i]);
-							}
-							fprintf(stdout, "\n");
-						}
-						should_reset_buffers = TRUE;
-						break;
+					/* Reset buffer for repacking message */
+					memset((char*)buf, 0, BUFFER_LEN);
 
-						/* Radio status message (sik radios only) */
-					case MAVLINK_MSG_ID_RADIO_STATUS:
-						/* Get current date */
-						time_var = time(NULL);
-						time_struct = *localtime(&time_var);
+					/* Repack message with timestamp */
+					mavlink_msg_test_frame_pack(1, 200, &newmsg, 
+							mavlink_msg_test_frame_get_sequence(&mavmsg),
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+							timestamp);
+					len = mavlink_msg_to_send_buffer(buf, &newmsg);
 
-						/* Show radio status */
-						fprintf(stdout, "%d:%d:%d %d bytes from radio\n",
-								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
-								bytes_read);
-						fprintf(stdout, "rssi: %u, remrssi: %u\n",
-								mavlink_msg_radio_status_get_rssi(&mavmsg),
-								mavlink_msg_radio_status_get_remrssi(&mavmsg));
-						should_reset_buffers = TRUE;
-						break;
+					/* Debug string */
+					fprintf(stdout, "[DEBUG] seq_num: %u, timestamp_sender: %lf, timestamp_echo: %lf\n",
+							mavlink_msg_test_frame_get_sequence(&newmsg),
+							mavlink_msg_test_frame_get_timestamp_sender(&newmsg),
+							mavlink_msg_test_frame_get_timestamp_echo(&newmsg));
+
+					/* Echo back message */
+					if ((bytes_sent = write(fd, buf, len)) < 0) {
+						fprintf(stderr, "Unable to send! exiting..\n");
+						exit(1);
+					}
 				}
 			}
-
-			if (should_reset_buffers) break;
 		}
-
-		/* TODO: find a way to keep persistant data(MYSQL, sqlite3 etc) 
-		 * TODO: What I should be testing:
-		 *				- number of bytes sent/received 
-		 *				- rtt(round trip time)
-		 *				- uplink time
-		 *				- downlink time 
-		 *				- rssi
-		 *				- remote rssi */
 	}
 }

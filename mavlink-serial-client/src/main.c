@@ -8,15 +8,13 @@
 #include <termios.h>
 #include <stdint.h>
 #include <time.h>
+#include <sys/time.h>
 #include <mavlink.h>
 #include "dbfunctions.h"
 
 /* Serial port settings */
 #define BAUDRATE B57600
 #define BUFFER_LEN 2041
-
-#define TRUE 1
-#define FALSE 0
 
 /* Globals(termios specific) */
 struct termios	oldtio, newtio;
@@ -40,9 +38,7 @@ int main(int argc, char **argv) {
 	}
 
 	/*
-	 * Open serial port ttyUSB0 
-	 * O_RDWR			= Open port with read / write
-	 * ## default is a blocking read */
+	 * O_RDWR			= Open port with read | write */
 	if ((fd = open(argv[1], O_RDWR)) == -1) {
 		fprintf(stderr, "main: %s open failed!\n", argv[1]);
 		exit(1);
@@ -74,8 +70,8 @@ int main(int argc, char **argv) {
 	 * VMIN			= blocking read until min char recv */
 	newtio.c_cflag = BAUDRATE | CS8 | CREAD;
 	newtio.c_lflag = 0;
-	newtio.c_cc[VTIME] = 0;		// timer unused 
-	newtio.c_cc[VMIN] = 1;		// min 1 character
+	newtio.c_cc[VTIME] = 3;		// timer for 10 seconds
+	newtio.c_cc[VMIN] = 0;		// min 1 character
 
 	/* Flush modem */
 	tcflush(fd, TCIFLUSH);
@@ -88,6 +84,7 @@ int main(int argc, char **argv) {
 	printf("main: registering signal..\n");
 	if (signal(SIGINT, signal_handler) == SIG_ERR) {
 		fprintf(stderr, "Cannot catch\n");
+		exit(1);
 	}
 
 	/* Start sending messages */
@@ -114,17 +111,18 @@ void signal_handler(int sign) {
 void sendMessages() {
 	/* len	: function return values */
 	int bytes_read, bytes_sent, len, i = 0;
+	uint32_t seq_num = 1;
 	/* mavlink variables */
 	mavlink_message_t mavmsg;
-	mavlink_status_t mavstatus;
+	mavlink_status_t status;
 	/* buf	: sending buffer 
 	 * temp	: temporary uint8_t value */
 	uint8_t buf[BUFFER_LEN];
 	uint8_t temp;
-	/* flags */
 	/* Timers and time */
-	clock_t timer;
-	double time_taken;
+	struct timeval tv;
+	double timestamp_echo = 0.0, timestamp_cur = 0.0,
+				 time_taken, uplink_time, downlink_time;
 	time_t time_var = time(NULL);
 	struct tm time_struct = *localtime(&time_var);
 
@@ -134,22 +132,25 @@ void sendMessages() {
 			time_struct.tm_year+1900, time_struct.tm_mon+1, time_struct.tm_mday);
 
 	/* Main loop */
-	while(TRUE) {
+	while(1) {
 		/* Reset buffers and variables */
 		i = 0;
 		bytes_read = 0;
 		temp = 0;
-		memset((char*)&mavstatus, 0, sizeof(mavstatus));
+		memset((char*)&status, 0, sizeof(status));
 		memset((char*)&mavmsg, 0, sizeof(mavmsg));
 		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);		// mavmsg buffer
 
-		/* Create mavlink message: HEARTBEAT 
-		 * TODO: custom mavlink messages */
-		mavlink_msg_heartbeat_pack(1, 200, &mavmsg,
-				MAV_TYPE_HELICOPTER,
-				MAV_AUTOPILOT_GENERIC,
-				MAV_MODE_GUIDED_ARMED, 0, MAV_STATE_ACTIVE);
+		/* Get timestamp (milliseconds from epoch) */
+		gettimeofday(&tv, NULL);
+		timestamp_cur = ((double)(tv.tv_sec) * 1000) 
+			+ ((double)(tv.tv_usec) / 1000);
+
+		/* Create mavlink message: Test */
+		mavlink_msg_test_frame_pack(1, 200, &mavmsg,
+				seq_num, timestamp_cur, timestamp_echo);
 		len = mavlink_msg_to_send_buffer(buf, &mavmsg);
+		seq_num++;
 
 		/* Send the message */
 		if ((bytes_sent = write(fd, buf, len)) < 0 ) {
@@ -157,35 +158,47 @@ void sendMessages() {
 			exit(1);
 		} 
 
-		/* Start timer */
-		timer = clock();
+		/* Reset buffers and variables */
+		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
+		memset((char*)&mavmsg, 0, sizeof(mavmsg));
+		memset((char*)&status, 0, sizeof(status));
 
-		/* Read one byte from radio */ 
+		/* Try to read bytes from radio */ 
 		while ((len = read(fd, &temp, 1)) > 0) {
 			buf[i++] = temp;
 			bytes_read += len;
 			/* Parse packet */
-			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &mavstatus)) {
-				/* Valid packet received, switch on msgid */
-				if (mavmsg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
-					/* Stop timer */
-					timer = clock() - timer;
-					time_taken = ((double)timer) / CLOCKS_PER_SEC;
-					time_taken = time_taken * 1000;
+			if (mavlink_parse_char(MAVLINK_COMM_0, temp, &mavmsg, &status)) {
+				if (mavmsg.msgid == MAVLINK_MSG_ID_TEST_FRAME) {
+					/* Get measured rtt, uplink and downlink time */
+					gettimeofday(&tv, NULL);
+					timestamp_cur = ((double)(tv.tv_sec) * 1000) 
+						+ ((double)(tv.tv_usec) / 1000);
+					time_taken = timestamp_cur - 
+						mavlink_msg_test_frame_get_timestamp_sender(&mavmsg);
+					uplink_time = mavlink_msg_test_frame_get_timestamp_echo(&mavmsg) -
+						mavlink_msg_test_frame_get_timestamp_sender(&mavmsg);
+					downlink_time = timestamp_cur - 
+						mavlink_msg_test_frame_get_timestamp_echo(&mavmsg);
 
-					/* Get current date */
+					/* Get local time */
 					time_var = time(NULL);
 					time_struct = *localtime(&time_var);
 
 					/* Indicate packet is received */
-					fprintf(stdout, "%d:%d:%d recv HEARTBEAT: size=%d seq=%d rtt=%lfms\n", 
+					fprintf(stdout, "%d:%d:%d %d bytes recv(TEST_FRAME)\n", 
 							time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
-							bytes_read, mavmsg.seq, time_taken);
-					fprintf(stdout, "Received packet: SYS:%d, COMP:%d, LEN:%d, MSG ID:%d\n",
-							mavmsg.sysid, mavmsg.compid, mavmsg.len, mavmsg.msgid);
+							bytes_read);
+					fprintf(stdout, "seq_num: %u rtt: %lf, ut: %lfms, dt: %lfms\n",
+							mavlink_msg_test_frame_get_sequence(&mavmsg),
+							time_taken, uplink_time, downlink_time);
+					fprintf(stdout, "[DEBUG] timestamp_sender: %lf, timestamp_echo: %lf\n",
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
 
 					/* Save data */
-					savePersistantData(mavmsg, buf, &time_struct, bytes_read, time_taken, 0.0, 0.0);
+					savePersistantData(mavmsg, buf, &time_struct, bytes_read, 
+							time_taken, uplink_time, downlink_time);
 
 					/* Wait 1 second and break from read loop */
 					sleep(1);
@@ -203,23 +216,36 @@ void sendMessages() {
 							mavlink_msg_radio_status_get_rssi(&mavmsg),
 							mavlink_msg_radio_status_get_remrssi(&mavmsg));
 
-					/* Clear buffers */
+					/* Clear buffers (Keep reading bytes) */
 					i = 0;
 					bytes_read = 0;
 					temp = 0;
-					memset((char*)&mavstatus, 0, sizeof(mavstatus));
+					memset((char*)&status, 0, sizeof(status));
 					memset((char*)&mavmsg, 0, sizeof(mavmsg));
 					memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
 				} else {
-					/* Clear buffers */
+					/* Clear buffers(Keep readig bytes) */
 					i = 0;
 					bytes_read = 0;
 					temp = 0;
-					memset((char*)&mavstatus, 0, sizeof(mavstatus));
+					memset((char*)&status, 0, sizeof(status));
 					memset((char*)&mavmsg, 0, sizeof(mavmsg));
 					memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
 				}
 			}
+		}
+
+		/* Unable to receive data in predefined time frame */
+		if (len <= 0) {
+			fprintf(stderr, "Unable to receive sequence %u\n", seq_num-1);
+			/* Pack dummy mavlink message */
+			mavlink_msg_test_frame_pack(1, 200, &mavmsg,
+					seq_num - 1, -99.9, -99.9);
+			len = mavlink_msg_to_send_buffer(buf, &mavmsg);
+			/* Get local time */
+			time_var = time(NULL);
+			time_struct = *localtime(&time_var);
+			savePersistantData(mavmsg, buf, &time_struct, len, -99.9, -99.9, -99.9);
 		}
 	}
 }

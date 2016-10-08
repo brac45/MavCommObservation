@@ -60,16 +60,11 @@ else
 		let "id_var++"
 		db_insert_session "$id_var" "$date_var" "$description_var"
 	fi
-
 	# Main procedure 
 	case $3 in
-		"433" )
-			echo "433MHz sik radio selected!"
-			start_433 $1 $id_var
-			;;
-		"915" )
-			echo "915MHz sik radio selected!"
-			start_915 $1 $id_var
+		"serial" )
+			echo "serial selected!"
+			start_serial $1 $id_var
 			;;
 		"wifi" )
 			echo "wifi selected!"

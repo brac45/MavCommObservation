@@ -25,7 +25,8 @@ IP_ADDR="127.0.0.1"
 PORT=9090
 
 # Serial related constants
-SERIAL_DEVICE="/dev/ttyUSB0"
+SERIAL_DEVICE_C="/dev/ttyUSB0"
+SERIAL_DEVICE_S="/dev/ttyUSB1"
 
 # SQL QUERIES
 DB_SESSION_TABLE="CREATE TABLE IF NOT EXISTS session (\

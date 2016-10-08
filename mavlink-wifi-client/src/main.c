@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	/* Set socket options for 5 second timeout */
-	timeout.tv_sec = 5;
+	timeout.tv_sec = 10;
 	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, 
 				(struct timeval *)&timeout, sizeof(struct timeval)) < 0) {
 		fprintf(stderr, "Error in SO_RCVTIMEO\n");
@@ -151,7 +151,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 
 		/* Send the message */
 		if ((bytes_sent = sendto(fd, buf, len, 0, (struct sockaddr *)remote, s_size)) == -1) {
-			perror("Unable to send");
+			fprintf(stderr, "Unable to send! Exiting..\n");
+			exit(1);
 		}
 
 		/* Reset buffers and variables */
@@ -161,8 +162,8 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 
 		/* Receive a datagram */
 		if ((recvsize = recvfrom(fd, buf, BUFFER_LENGTH, 0, (struct sockaddr *)remote, &s_size)) < 0) {
-			fprintf(stderr, "Unable to receive sequence %d\n", seq_num - 1);
-			/* Pack mavlink message */
+			fprintf(stderr, "Unable to receive sequence %u\n", seq_num - 1);
+			/* Pack dummy mavlink message */
 			mavlink_msg_test_frame_pack(1, 200, &mavmsg,
 					seq_num - 1, -99.9, -99.9);
 			len = mavlink_msg_to_send_buffer(buf, &mavmsg);
@@ -191,7 +192,7 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 						time_struct = *localtime(&time_var);
 
 						/* Indicate packet is received */
-						fprintf(stdout, "%d:%d:%d %d bytes from MAV(%s:%d)\n",
+						fprintf(stdout, "%d:%d:%d %d bytes(TEST_FRAME)(%s:%d)\n",
 								time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec, 
 								(int)recvsize, inet_ntoa(remote->sin_addr), ntohs(remote->sin_port));
 						fprintf(stdout, "seq_num: %u rtt: %lf, ut: %lfms, dt: %lfms\n",

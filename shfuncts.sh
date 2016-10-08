@@ -58,12 +58,33 @@ usage () {
 	echo ""
 }
 
-start_915 () {
-	return
-}
-
-start_433 () {
-	return
+start_serial () {
+	case $1 in 
+		"-c" )
+			echo "Serial client starting.."
+			if [ -f "$SERIAL_CLIENT/bin/$SERIAL_EXE_C" ]; then
+				echo "Entering $SERIAL_CLIENT"
+				cd $SERIAL_CLIENT
+				./bin/$SERIAL_EXE_C $SERIAL_DEVICE_C ../$DB_FILE $2 
+			else
+				echo "Compile $SERIAL_EXE_C in $SERIAL_CLIENT"
+			fi
+			;;
+		"-s" )
+			echo "Serial server starting.."
+			if [ -f "$SERIAL_SERVER/bin/$SERIAL_EXE_S" ]; then
+				echo "Entering $SERIAL_SERVER"
+				cd $SERIAL_SERVER
+				./bin/$SERIAL_EXE_S $SERIAL_DEVICE_S
+			else
+				echo "Compile $SERIAL_EXE_S in $SERIAL_SERVER"
+			fi
+			;;
+		* )
+			usage
+			exit 1
+			;;
+	esac
 }
 
 start_wifi () {
