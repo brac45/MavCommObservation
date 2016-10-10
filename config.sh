@@ -21,12 +21,15 @@ BLUE_EXE_C="bluetooth-client.out"
 BLUE_EXE_S="bluetooth-server.out"
 
 # Wifi related constants
-IP_ADDR="127.0.0.1"
+IP_ADDR="192.168.42.1"
 PORT=9090
 
 # Serial related constants
 SERIAL_DEVICE_C="/dev/ttyUSB0"
-SERIAL_DEVICE_S="/dev/ttyUSB1"
+SERIAL_DEVICE_S="/dev/ttyUSB0"
+
+# Bluetooth related constants
+DEST_MAC_ADDR="00:1A:7D:DA:71:05"
 
 # SQL QUERIES
 DB_SESSION_TABLE="CREATE TABLE IF NOT EXISTS session (\

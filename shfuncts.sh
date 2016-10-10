@@ -123,7 +123,7 @@ start_bluetooth () {
 			if [ -f "$BLUE_CLIENT/bin/$BLUE_EXE_C" ]; then
 				echo "Entering $BLUE_CLIENT"
 				cd $BLUE_CLIENT
-				./bin/$BLUE_EXE_C ../$DB_FILE
+				./bin/$BLUE_EXE_C $DEST_MAC_ADDR ../$DB_FILE $2
 			else
 				echo "Please compile $BLUE_EXE_C in $BLUE_CLIENT"
 			fi

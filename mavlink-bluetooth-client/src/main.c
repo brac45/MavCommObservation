@@ -9,13 +9,12 @@
 #include "dbfunctions.h"
 #include <mavlink.h>
 
-#define DEST_MAC_ADDR "00:1A:7D:DA:71:05"
-
 void sendMessages(int fd);
 
 /*
  * argv[1] : DEST_MAC_ADDR 
- * argv[2] : DB_FILE */
+ * argv[2] : DB_FILE 
+ * argv[3] : session_id */
 int main(int argc, char **argv) {
 	// Bluetooth specific variables
 	struct sockaddr_l2 addr = { 0 };
@@ -23,9 +22,20 @@ int main(int argc, char **argv) {
 	char dest[18];
 	struct timeval timeout;
 
+	/* Open db */
+	strcpy(database_file, argv[2]);
+	if (sqlite3_open(database_file, &db)) {
+		fprintf(stderr, "Unable to open %s %s\n", database_file, sqlite3_errmsg(db));
+	} else {
+		fprintf(stdout, "Opened DB %s\n", database_file);
+	}
+
 	/* Copy destination MAC address */
-	strcpy(dest, DEST_MAC_ADDR);
+	strcpy(dest, argv[1]);
 	printf("%s\n", dest);
+
+	/* Copy session id */
+	strcpy(session_id, argv[3]);
 
 	/* allocate a socket */
 	fd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
@@ -39,20 +49,14 @@ int main(int argc, char **argv) {
 	addr.l2_psm = htobs(0x1001);
 	str2ba( dest, &addr.l2_bdaddr );
 
-	/* Set socket options for 5 second timeout */
-	timeout.tv_sec = 5;
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, 
-				(struct timeval *)&timeout, sizeof(struct timeval)) < 0) {
-		fprintf(stderr, "Error in SO_RCVTIMEO\n");
-		exit(1);
-	}
-
 	/* connct to server */
 	status = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
 	printf("Status: %d\n", status);
 
 	/* Start sending messages */
 	sendMessages(fd);
+
+	return 0;
 }
 
 void sendMessages(int fd) {
@@ -81,7 +85,12 @@ void sendMessages(int fd) {
 		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
 		memset((char*)recvbuf, 0, sizeof(uint8_t) * BUFFER_LEN);
 
-		/* Set mavlink message: HEARTBEAT */
+		/* Get current time in milliseconds */
+		gettimeofday(&tv, NULL);
+		timestamp_cur = ((double)(tv.tv_sec) * 1000)
+			+ ((double)(tv.tv_usec) / 1000);
+
+		/* Set mavlink message: TESTFRAME */
 		mavlink_msg_test_frame_pack(1, 200, &mavmsg,
 				seq_num, timestamp_cur, timestamp_echo);
 		len = mavlink_msg_to_send_buffer(buf, &mavmsg);
@@ -94,8 +103,7 @@ void sendMessages(int fd) {
 		}
 
 		/* Receive a reply and print it */
-		memset((char*)buf, 0, sizeof(uint8_t) * BUFFER_LEN);
-		if ((bytes_read = read(fd, buf, sizeof(buf))) < 0) {
+		if ((bytes_read = read(fd, recvbuf, BUFFER_LEN)) < 0) {
 			fprintf(stderr, "Unable to receive sequence %u\n", seq_num - 1);
 			/* Pack dummy mavlink message */
 			mavlink_msg_test_frame_pack(1, 200, &mavmsg,
@@ -108,7 +116,7 @@ void sendMessages(int fd) {
 		} else {
 			/* Parse packet */
 			for (i=0; i<bytes_read; i++) {
-				if (mavlink_parse_char(MAVLINK_COMM_0, buf[i], &mavmsg, &status)) {
+				if (mavlink_parse_char(MAVLINK_COMM_0, recvbuf[i], &mavmsg, &status)) {
 					/* Get measured rtt, uplink and downlink time */
 					gettimeofday(&tv, NULL);
 					timestamp_cur = ((double)(tv.tv_sec) * 1000) 
@@ -131,9 +139,12 @@ void sendMessages(int fd) {
 					fprintf(stdout, "seq_num: %u rtt: %lf, ut: %lfms, dt: %lfms\n",
 							mavlink_msg_test_frame_get_sequence(&mavmsg),
 							time_taken, uplink_time, downlink_time);
-					fprintf(stdout, "[DEBUG] timestamp_sender: %lf, timestamp_echo: %lf\n",
-							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+					fprintf(stdout, "[DEBUG] start  : %lf\n",
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg));
+					fprintf(stdout, "[DEBUG] echo   : %lf\n", 
 							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
+					fprintf(stdout, "[DEBUG] current: %lf\n", 
+							timestamp_cur);
 
 					/* Save data to database */
 					savePersistantData(mavmsg, recvbuf, &time_struct, (int)bytes_read, 
@@ -141,10 +152,6 @@ void sendMessages(int fd) {
 
 					/* Sleep for a second */
 					sleep(1);
-				} else if (i == (bytes_read-1)) {
-					/* Broken packet */
-					printf("%d:%d:%d Broken packet(Invalid checksom)\n", 
-							time_struct.tm_hour, time_struct.tm_min, time_struct.tm_sec);
 				}
 			}
 		}

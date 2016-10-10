@@ -64,6 +64,8 @@ int main(int argc, char* argv[]) {
 
 	/* Start echoing routine */
 	serverRoutine(fd);
+
+	return 0;
 }
 
 void serverRoutine(int sock) {

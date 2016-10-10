@@ -184,9 +184,13 @@ void sendMessages() {
 					fprintf(stdout, "seq_num: %u rtt: %lf, ut: %lfms, dt: %lfms\n",
 							mavlink_msg_test_frame_get_sequence(&mavmsg),
 							time_taken, uplink_time, downlink_time);
-					fprintf(stdout, "[DEBUG] timestamp_sender: %lf, timestamp_echo: %lf\n",
-							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+					fprintf(stdout, "[DEBUG] start  : %lf\n",
+							mavlink_msg_test_frame_get_timestamp_sender(&mavmsg));
+					fprintf(stdout, "[DEBUG] echo   : %lf\n", 
 							mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
+					fprintf(stdout, "[DEBUG] current: %lf\n", 
+							timestamp_cur);
+
 
 					/* Save data */
 					savePersistantData(mavmsg, recvbuf, &time_struct, bytes_read, 

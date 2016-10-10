@@ -25,6 +25,8 @@ int main(int argc, char **argv) {
 	loc_addr.l2_bdaddr = *BDADDR_ANY;
 	loc_addr.l2_psm = htobs(0x1001);
 
+	/* bind */
+	fprintf(stdout, "Binding..\n");
 	bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr));
 
 	// put socket into listening mode
@@ -36,33 +38,17 @@ int main(int argc, char **argv) {
 	ba2str( &rem_addr.l2_bdaddr, buf );
 	fprintf(stdout, "accepted connection from %s\n", buf);
 
-	/*
-	while (1) {
-		memset(buf, 0, sizeof(buf));
-
-		printf("Reading data from client..\n");
-		bytes_read = read(client, buf, sizeof(buf));
-		if( bytes_read > 0 ) {
-			printf("received [%s]\n", buf);
-
-			printf("echoing data: %s .. fd=%d\n", buf, client);
-			write(client, buf, bytes_read); 
-		} else {
-			printf("received none\n");
-			break;
-		}
-	}
-	*/
-
 	/* Main server routine */
 	serverRoutine(client);
 
 	// close connection
 	close(client);
 	close(s);
+
+	return 0;
 }
 
-void serverRoutine(int sock) {
+void serverRoutine(int client) {
 	unsigned int i = 0;
 	mavlink_message_t mavmsg, newmsg;
 	mavlink_status_t status;
@@ -79,7 +65,7 @@ void serverRoutine(int sock) {
 
 		fprintf(stdout, "Waiting for messages..\n");
 
-		if ((recv_len = read(sock, buf, BUFFER_LENGTH))) {
+		if ((recv_len = read(client, buf, BUFFER_LENGTH)) <= 0) {
 			fprintf(stderr, "read failed for some reason\n");
 		} else {
 			/* Parse packet */
@@ -116,7 +102,7 @@ void serverRoutine(int sock) {
 							mavlink_msg_test_frame_get_timestamp_echo(&newmsg));
 
 					/* Echo back */
-					write(sock, buf, recv_len);
+					write(client, buf, retlen);
 				}
 			}
 		}

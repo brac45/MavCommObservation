@@ -155,6 +155,9 @@ void serverRoutine() {
 						fprintf(stderr, "Unable to send! exiting..\n");
 						exit(1);
 					}
+
+					/* Break reading loop */
+					break;
 				}
 			}
 		}

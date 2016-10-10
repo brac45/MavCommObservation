@@ -110,6 +110,8 @@ int main(int argc, char* argv[]) {
 		usage();
 		exit(1);
 	}
+
+	return 0;
 }
 
 void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
@@ -193,9 +195,12 @@ void sendMessagesUDP(int fd, struct sockaddr_in* remote) {
 						fprintf(stdout, "seq_num: %u rtt: %lf, ut: %lfms, dt: %lfms\n",
 								mavlink_msg_test_frame_get_sequence(&mavmsg),
 								time_taken, uplink_time, downlink_time);
-						fprintf(stdout, "[DEBUG] timestamp_sender: %lf, timestamp_echo: %lf\n",
-								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg),
+						fprintf(stdout, "[DEBUG] origin: %lf\n",
+								mavlink_msg_test_frame_get_timestamp_sender(&mavmsg));
+						fprintf(stdout, "[DEBUG] echo: %lf\n",
 								mavlink_msg_test_frame_get_timestamp_echo(&mavmsg));
+						fprintf(stdout, "[DEBUG] cur: %lf\n",
+								timestamp_cur);
 
 						/* Save data to database */
 						savePersistantData(mavmsg, recvbuf, &time_struct, (int)recvsize, 
